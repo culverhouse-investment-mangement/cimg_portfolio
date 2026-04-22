@@ -18,20 +18,37 @@ Top-of-page stats.
   "ytd_pnl": 12044.20,
   "ytd_pct": 0.0699,
   "inception_pnl": 34120.88,
-  "inception_pct": 0.2271
+  "inception_pct": 0.2271,
+  "dividend_income_ytd": 412.30,
+  "dividend_income_total": 2104.75
 }
 ```
 
-## `GET /api/portfolio/performance?range=1M|3M|6M|YTD|1Y|ALL`
+`daily_pnl` / `ytd_pnl` / `inception_pnl` are `null` until the matching historical `fund_snapshots` row exists. `dividend_income_*` are summed directly from `cash_transactions` where `kind='dividend'`.
+
+## `GET /api/portfolio/performance?range=1D|1M|3M|6M|YTD|1Y|ALL`
 
 Time series for the fund-vs-benchmark chart. Default `range=YTD`.
+
+- `1D` reads from `price_ticks` and `benchmark_snapshots` (intraday rows); `t` is an ISO timestamp.
+- All other ranges read from daily `fund_snapshots` joined to `benchmark_snapshots` where `is_daily_close = true`; `t` is an ISO date.
 
 ```json
 {
   "range": "YTD",
   "series": [
-    { "date": "2026-01-02", "fund": 172186.21, "benchmark": 100.00 },
-    { "date": "2026-01-03", "fund": 173002.55, "benchmark": 100.42 }
+    { "t": "2026-01-02",          "fund": 172186.21, "benchmark": 100.00 },
+    { "t": "2026-01-03",          "fund": 173002.55, "benchmark": 100.42 }
+  ]
+}
+```
+
+```json
+{
+  "range": "1D",
+  "series": [
+    { "t": "2026-04-22T13:30:00Z", "fund": 184012.10, "benchmark": 100.00 },
+    { "t": "2026-04-22T13:45:00Z", "fund": 184221.44, "benchmark": 100.05 }
   ]
 }
 ```
@@ -53,45 +70,55 @@ Pie chart data.
 
 ## `GET /api/portfolio/positions`
 
-All current positions (closed positions excluded by default; pass `?include=closed` to include them).
+One row per ticker. All buy lots are aggregated; `avg_cost_basis` is the weighted cost basis across remaining shares after FIFO-allocating sells. Fully-sold tickers are excluded by default; pass `?include=closed` to include them.
 
 ```json
 [
   {
-    "id": "8b9...",
     "ticker": "AAPL",
     "name": "Apple Inc.",
     "committee": { "id": "tech", "name": "Technology" },
-    "shares": 12,
-    "cost_basis": 142.10,
-    "purchased_at": "2024-09-17",
+    "shares_remaining": 18,
+    "avg_cost_basis": 145.50,
     "current_price": 198.44,
-    "market_value": 2381.28,
-    "unrealized_pnl": 676.08,
-    "unrealized_pct": 0.3964,
-    "weight": 0.0129,
-    "as_of": "2026-04-22"
+    "market_value": 3571.92,
+    "unrealized_pnl": 952.92,
+    "unrealized_pct": 0.3639,
+    "realized_pnl": 120.00,
+    "weight": 0.0195,
+    "lots": [
+      { "id": "8b9...", "shares": 12, "cost_basis": 142.10, "purchased_at": "2024-09-17", "remaining_shares": 10, "realized_pnl": 120.00 },
+      { "id": "1c3...", "shares": 8,  "cost_basis": 150.60, "purchased_at": "2025-03-04", "remaining_shares": 8,  "realized_pnl": 0 }
+    ]
   }
 ]
 ```
 
 ## `GET /api/portfolio/positions/:ticker`
 
-Single position with latest fundamentals.
+All lots for a ticker plus the latest fundamentals. One ticker can have multiple lots (the data model treats corrections as new rows rather than edits), so the response returns a `lots` array ordered by purchase date.
 
 ```json
 {
   "ticker": "AAPL",
   "name": "Apple Inc.",
-  "committee": { "id": "tech", "name": "Technology" },
-  "shares": 12,
-  "cost_basis": 142.10,
-  "purchased_at": "2024-09-17",
-  "thesis": "...",
   "current_price": 198.44,
-  "market_value": 2381.28,
-  "unrealized_pnl": 676.08,
-  "unrealized_pct": 0.3964,
+  "lots": [
+    {
+      "id": "8b9...",
+      "committee": { "id": "tech", "name": "Technology" },
+      "shares": 12,
+      "cost_basis": 142.10,
+      "purchased_at": "2024-09-17",
+      "thesis": "...",
+      "closed_at": null,
+      "close_price": null,
+      "market_value": 2381.28,
+      "unrealized_pnl": 676.08,
+      "unrealized_pct": 0.3964,
+      "realized_pnl": null
+    }
+  ],
   "fundamentals": {
     "market_cap": 3010000000000,
     "enterprise_value": 3040000000000,
@@ -105,13 +132,15 @@ Single position with latest fundamentals.
 }
 ```
 
+Closed lots have `closed_at`, `close_price`, and `realized_pnl` populated; their `market_value` / `unrealized_*` are `null`.
+
 ## Errors
 
 ```json
 { "error": "unknown_ticker", "message": "No position found for ticker FOOBAR" }
 ```
 
-Status codes follow the usual conventions: `200` success, `400` bad query, `404` not found, `429` rate limited, `500` server error. The API is cached at the edge for 60 seconds on successful `GET` responses.
+Status codes follow the usual conventions: `200` success, `400` bad query, `404` not found, `429` rate limited, `500` server error. The API is cached at the edge for 60 seconds on successful `GET` responses — short enough that each 15-min tick propagates on the next request after it lands.
 
 ## Versioning
 

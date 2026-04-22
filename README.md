@@ -14,35 +14,23 @@ Public portfolio management dashboard for **CIMG**. Replaces a spreadsheet with 
 
 ## Stack
 
-- [Next.js 14](https://nextjs.org) (App Router, TypeScript) on [Vercel](https://vercel.com) free tier
+- [Next.js 16](https://nextjs.org) (App Router, TypeScript, React 19) on [Vercel](https://vercel.com) free tier
 - [Supabase](https://supabase.com) Postgres + Auth for data and PM login (free tier)
-- [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) + [Recharts](https://recharts.org)
+- [Tailwind CSS](https://tailwindcss.com) + [Recharts](https://recharts.org) (shadcn/ui added as we build components)
 - Market data from [Financial Modeling Prep](https://financialmodelingprep.com) with Alpha Vantage as fallback
-- Daily price snapshot job runs as a Vercel Cron
+- Price ingestion runs on GitHub Actions: 15-min intraday ticks + a daily close/fundamentals job
 
 ## Getting started
 
-> The Next.js app hasn't been scaffolded yet — this repo currently holds the plan, schema, and API contract. Run the steps below to bring it online.
-
 ```bash
-# 1. Scaffold the app into this directory
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias "@/*"
-
-# 2. Install runtime deps
-npm i @supabase/supabase-js @supabase/ssr recharts date-fns zod
-
-# 3. Set up shadcn/ui
-npx shadcn@latest init
-
-# 4. Create a Supabase project, then run the schema
-#    (copy supabase/schema.sql into the Supabase SQL editor, or use the CLI)
-
-# 5. Copy env template and fill in values
-cp .env.example .env.local
-
-# 6. Run locally
-npm run dev
+npm install
+cp .env.example .env.local   # then fill in Supabase + FMP keys
+npm run dev                  # http://localhost:3000
 ```
+
+Other scripts: `npm run build`, `npm run lint`, `npm run typecheck`.
+
+To apply the database schema, open the Supabase SQL editor and paste [`supabase/schema.sql`](supabase/schema.sql).
 
 ## Docs
 

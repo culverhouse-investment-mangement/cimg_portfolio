@@ -29,13 +29,13 @@ Hard requirements (from the owner):
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Frontend + API | **Next.js 14 (App Router, TypeScript)** | One repo, server components + route handlers, deploys free on Vercel |
+| Frontend + API | **Next.js 16 (App Router, TypeScript, React 19)** | One repo, server components + route handlers, deploys free on Vercel |
 | UI | **Tailwind CSS + shadcn/ui** | Fast to build, looks clean, no design system to invent |
 | Charts | **Recharts** | React-native, good for line + pie |
 | Database | **Supabase Postgres** | Free tier, row-level security, auto-generated REST |
 | Auth | **Supabase Auth (email magic link)** | PM logs in, RLS gates writes |
 | Market data | **Financial Modeling Prep** (primary) with Alpha Vantage fallback | Free tiers; covers quotes + fundamentals |
-| Price ingestion | **Vercel Cron** hitting `/api/cron/snapshot` once a day after US close | Stays inside free-tier call limits, keeps UI fast |
+| Price ingestion | **GitHub Actions** on cron, hitting `/api/cron/tick` (intraday) and `/api/cron/daily` (fundamentals) | Vercel's free tier caps cron at daily; GH Actions runs every 15 min for free |
 | Hosting | **Vercel** (app) + **Supabase** (DB/auth) | Both free for this size |
 
 If the owner prefers a different stack, update this file **before** scaffolding.
@@ -52,24 +52,42 @@ If the owner prefers a different stack, update this file **before** scaffolding.
 │   └── api.md                # public API contract
 ├── supabase/
 │   └── schema.sql            # committees, positions, snapshots, RLS policies
-├── app/                      # Next.js App Router (added on scaffold)
-│   ├── (public)/             # public dashboard
-│   ├── admin/                # PM-only UI, gated by Supabase session
-│   └── api/                  # public + private route handlers
-├── components/               # shared UI
-├── lib/                      # supabase client, market-data client, calc helpers
+├── .github/
+│   └── workflows/
+│       ├── snapshot-ticks.yml   # every 15 min during US market hours
+│       └── snapshot-daily.yml   # once after close — fundamentals + daily totals
+├── app/                      # Next.js App Router
+│   ├── layout.tsx            # root layout
+│   ├── page.tsx              # public dashboard
+│   ├── globals.css
+│   ├── admin/                # PM-only UI, gated by Supabase session  (to build)
+│   └── api/                  # public + private route handlers       (to build)
+├── components/               # shared UI                               (to build)
+├── lib/
+│   └── supabase/             # server, browser, proxy clients
+├── proxy.ts                  # Next 16 proxy — refreshes Supabase session cookie
+├── package.json
+├── tsconfig.json
+├── next.config.mjs
+├── tailwind.config.ts
+├── postcss.config.mjs
+├── eslint.config.mjs
 └── .env.example              # required env vars
 ```
 
-Anything not yet created lives only in the docs until it's scaffolded.
+## Setup
 
-## Setup (when scaffolding the Next.js app)
+The app is already scaffolded. After cloning:
 
 ```bash
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias "@/*"
-npm i @supabase/supabase-js @supabase/ssr recharts date-fns zod
-npx shadcn@latest init
+npm install
+cp .env.example .env.local   # then fill in values
+npm run dev                  # http://localhost:3000
 ```
+
+Other scripts: `npm run build`, `npm run lint`, `npm run typecheck`.
+
+When we start building UI components, add shadcn/ui with `npx shadcn@latest init`.
 
 Required env vars (put in `.env.local`; mirror non-secret keys into `.env.example`):
 
@@ -87,23 +105,24 @@ Never log, commit, or return the service-role key to the browser.
 
 - `committees` — 7 rows, fixed at seed time, each with a display color.
 - `positions` — one row per lot. Closing a position sets `closed_at` + `close_price`; rows are never hard-deleted.
-- `price_snapshots` — daily `(ticker, date) → price, market_cap, ev, pe, eps, div_yield, sector`. Written by the cron.
-- `fund_snapshots` — daily `(date) → total_value, cash`. Derived from positions + prices; stored for fast history queries.
-- `benchmark_snapshots` — daily `(symbol, date) → price`. `symbol='SPY'` stands in for S&P 500.
+- `price_ticks` — intraday `(ticker, observed_at) → price`. Written every 15 min during market hours; retained ~30 days then pruned.
+- `price_snapshots` — daily `(ticker, date) → close_price, market_cap, ev, pe, eps, div_yield, sector`. Written once after close; source of truth for historical ticker prices.
+- `fund_snapshots` — daily `(date) → total_value, cash`. Derived from positions + daily close; stored for fast multi-year history.
+- `benchmark_snapshots` — `(symbol, observed_at) → price`. Holds both intraday ticks and daily closes for `SPY`.
 
 ## Invariants
 
 - **Cost basis and shares are immutable after creation.** A correction is a new position row, not an update.
 - **Dates are stored as `date` (no time).** Market hours are handled by the ingestion job, not the UI.
 - **Money is stored as `numeric(18,4)`**, never `float`. Percentages are computed, never stored.
-- **`price_snapshots` is the source of truth for "what did this cost at time T".** The UI must not call the external market API directly.
+- **`price_ticks` is the source of truth for "current" prices; `price_snapshots` is the source of truth for historical daily closes.** The UI must not call the external market API directly.
 - **RLS is on for every table.** Public `SELECT` is explicit; all writes require an authenticated admin.
 
 ## API shape (public, read-only)
 
 ```
 GET /api/portfolio/summary                 → { total_value, daily_pnl, daily_pct, ytd_pnl, ytd_pct, as_of }
-GET /api/portfolio/performance?range=...   → { series: [{date, fund, benchmark}, ...] }
+GET /api/portfolio/performance?range=...   → { series: [{t, fund, benchmark}, ...] }  // range ∈ 1D,1M,3M,6M,YTD,1Y,ALL — 1D uses price_ticks, others use daily snapshots
 GET /api/portfolio/committees              → [{ name, value, pct, color }, ...]
 GET /api/portfolio/positions               → [{ ticker, committee, shares, cost_basis, current_price, market_value, unrealized_pnl, unrealized_pct }, ...]
 GET /api/portfolio/positions/:ticker       → full position + latest fundamentals
@@ -116,6 +135,7 @@ Admin-only (`POST/PATCH/DELETE`) endpoints live under `/api/admin/*` and require
 - **TypeScript strict mode.** No `any` unless narrowing from an external API at the boundary.
 - **Server components by default.** Drop to `"use client"` only for interactive charts/tables.
 - **Calculations live in `lib/`**, not in components — so the API and UI stay consistent.
+- **Next 16 idioms**: `cookies()` is async (`await cookies()`). The request-modifying file is `proxy.ts`, not `middleware.ts`.
 - **Tests**: add Vitest for `lib/` calc functions before the first deploy. UI tests can wait.
 - **Commits**: imperative subject, short body explaining the why. One logical change per commit.
 
@@ -126,12 +146,21 @@ Admin-only (`POST/PATCH/DELETE`) endpoints live under `/api/admin/*` and require
 ## What's done / what's next
 
 - [x] Repo bootstrap: docs, schema sketch, gitignore
-- [ ] Scaffold Next.js app and install deps
-- [ ] Provision Supabase project, run `supabase/schema.sql`, seed 7 committees
-- [ ] Wire Supabase client + auth (magic link for PM)
-- [ ] Build dashboard read path (summary, chart, pie, positions table)
+- [x] Scaffold Next.js 16 app + Tailwind + Supabase clients + proxy
+- [x] Schema + auth trigger + DB types + setup guide (`docs/setup-supabase.md`)
+- [x] Magic-link login + admin auth gate (`/admin/login`, `/auth/callback`, `/admin`)
+- [x] Public API: `/summary`, `/performance`, `/committees`, `/positions`, `/positions/:ticker`
+- [x] Shared query layer in `lib/portfolio/` (summary/committees/positions) so the dashboard and API share one source of truth
+- [x] Admin CRUD for positions (`POST /api/admin/positions`, `PATCH .../:id` close) + inline UI
+- [x] Cron handlers: `/api/cron/tick`, `/api/cron/daily` (FMP client, market-hours check, service-role writes)
+- [x] Dashboard UI wired to real data — summary cards, performance chart with range toggle, committee pie, positions table with portfolio/fundamentals toggle
+- [ ] Provision Supabase project, run `supabase/schema.sql`, seed 7 committees *(manual step — see `docs/setup-supabase.md`)*
+- [ ] Configure GitHub repo secrets `APP_URL` + `CRON_SECRET` and Vercel env vars *(manual step)*
+- [ ] Backfill inception history from CSV once the owner provides it
+- [ ] Vitest coverage for `lib/calc/` (committee allocations, intraday fund series) before first deploy
 - [ ] Build admin CRUD for positions
-- [ ] Cron job: daily price + fundamentals snapshot
+- [ ] GitHub Actions: 15-min intraday ticks + daily fundamentals snapshot
+- [ ] Tick retention job (prune `price_ticks` older than 30 days)
 - [ ] Load inception history (owner to provide CSV)
 - [ ] Deploy to Vercel, point custom domain
 

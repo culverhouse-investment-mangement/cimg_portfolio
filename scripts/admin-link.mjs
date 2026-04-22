@@ -4,9 +4,11 @@
 //   npm run admin-link -- you@example.com          # link only
 //   npm run admin-link -- you@example.com --admin  # link + promote to admin
 //
-// Uses the service-role key from .env.local (loaded via --env-file).
-// Creates the auth user on first use; the auth trigger seeds profiles.
-// Prints the sign-in URL to stdout — paste it in a browser.
+// Reads creds from .env.local via `node --env-file=`. Creates the auth
+// user on first use (the schema trigger seeds a viewer profile), then
+// calls Supabase's admin API for a hashed_token and prints a URL
+// pointing at our own /auth/confirm route — which calls verifyOtp
+// server-side, sets the session cookie, and redirects to /admin.
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
@@ -42,7 +44,7 @@ const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
   body: JSON.stringify({
     type: "magiclink",
     email,
-    redirect_to: `${origin}/auth/callback?next=/admin`,
+    redirect_to: `${origin}/auth/confirm?next=/admin`,
   }),
 });
 
@@ -52,10 +54,18 @@ if (!linkRes.ok) {
 }
 
 const body = await linkRes.json();
-const link = body.action_link ?? body.properties?.action_link;
+// Response shape varies across Supabase versions; hashed_token is sometimes
+// top-level and sometimes under `properties`. Pull it however it comes.
+const hashedToken =
+  body.hashed_token ??
+  body.properties?.hashed_token ??
+  (() => {
+    const rawLink = body.action_link ?? body.properties?.action_link;
+    return rawLink ? new URL(rawLink).searchParams.get("token") : null;
+  })();
 const userId = body.user?.id ?? body.id;
 
-if (!link || !userId) {
+if (!hashedToken || !userId) {
   console.error("Unexpected response from generate_link:");
   console.error(JSON.stringify(body, null, 2));
   process.exit(1);
@@ -79,6 +89,11 @@ if (promote) {
   }
 }
 
+const confirmUrl = new URL(`${origin}/auth/confirm`);
+confirmUrl.searchParams.set("token_hash", hashedToken);
+confirmUrl.searchParams.set("type", "magiclink");
+confirmUrl.searchParams.set("next", "/admin");
+
 console.log(`\nSign-in link for ${email}${promote ? " (admin)" : ""}:\n`);
-console.log(link);
+console.log(confirmUrl.toString());
 console.log("\nPaste the URL above into a browser. Valid for ~1 hour.\n");

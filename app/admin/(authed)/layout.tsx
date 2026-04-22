@@ -33,11 +33,19 @@ export default async function AdminAuthedLayout({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-800">
       <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-baseline gap-4">
             <Link href="/admin" className="text-lg font-semibold">
               CIMG Admin
             </Link>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <nav className="flex items-baseline gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <Link href="/admin/cash" className="hover:text-gray-900 dark:hover:text-gray-100">
+                Cash
+              </Link>
+              <Link href="/admin/team" className="hover:text-gray-900 dark:hover:text-gray-100">
+                Team
+              </Link>
+            </nav>
+            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
               {profile.display_name ?? user.email}
             </span>
           </div>

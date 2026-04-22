@@ -40,36 +40,25 @@ Copy these into `.env.local` (see `.env.example`). Never commit real values.
 
 ## 5. Create the first admin
 
-Magic-link sign-ins create `auth.users` rows automatically, and the `on_auth_user_created` trigger seeds a matching `profiles` row with `role='viewer'`. Promoting to admin is a second step.
-
-There are two paths — use the first one for bootstrapping (and whenever Supabase's default SMTP is acting up), use the second once email delivery is set up.
-
-### Option A — one-command bootstrap (recommended)
-
-From the project root, after `.env.local` is filled in:
+This is a one-time bootstrap. From the project root, after `.env.local` is filled in:
 
 ```bash
 npm run admin-link -- pm@example.com --admin
 ```
 
-This creates the user if needed, promotes them to admin, and prints a sign-in URL. Paste the URL into a browser — it completes the auth flow at `/auth/callback` and lands on `/admin`. Valid for ~1 hour.
+The script creates the auth user, promotes the profile to admin, and prints a sign-in URL. Paste the URL into a browser — it verifies server-side at `/auth/confirm`, sets a session cookie, and lands on `/admin`. Valid ~1 hour. No SMTP required.
 
 Drop `--admin` if you only want to generate a link for a viewer.
 
-The script uses `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`, so it bypasses SMTP entirely. Send the URL to the person over whatever channel you'd use normally.
+## 5a. After the first admin — add everyone else from the UI
 
-### Option B — normal magic-link flow
+Once you (or the PM) can reach `/admin`, go to **Admin → Team** (`/admin/team`). From there, any current admin can:
 
-Once email delivery is working (see §7), anyone can sign in on their own:
+- **Invite new members** — fill in email + role, click *Generate sign-in link*, copy the URL, send it over Slack/email/text. Same mechanism as `npm run admin-link`, no shell access needed.
+- **Change roles** — dropdown next to each member. Demoting the last remaining admin is blocked server-side so nobody locks the group out.
+- **Rotate ownership** — when the PM graduates, they promote their successor, the successor promotes the next class, the outgoing PM gets demoted. No SQL Editor, no service-role key handoff.
 
-1. Visit `/admin/login` and enter email → click the link in the inbox.
-2. They arrive signed in, but as a viewer. Promote them once in SQL Editor:
-
-   ```sql
-   update public.profiles
-   set role = 'admin'
-   where user_id = (select id from auth.users where email = 'pm@example.com');
-   ```
+For the normal `/admin/login` magic-link flow to work for self-signup, configure real email delivery (§7).
 
 ## 6. Production deploy
 

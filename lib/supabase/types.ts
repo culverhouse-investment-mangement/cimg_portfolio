@@ -1,6 +1,16 @@
 // Hand-written to mirror supabase/schema.sql. Replace with the output of
 // `supabase gen types typescript` once the Supabase CLI is wired up.
 
+export type CashTransactionKind =
+  | "deposit"
+  | "withdrawal"
+  | "dividend"
+  | "trade_buy"
+  | "trade_sell"
+  | "fee"
+  | "adjustment"
+  | "capital_injection";
+
 export type Database = {
   public: {
     Tables: {
@@ -104,14 +114,7 @@ export type Database = {
         Row: {
           id: string;
           amount: number;
-          kind:
-            | "deposit"
-            | "withdrawal"
-            | "dividend"
-            | "trade_buy"
-            | "trade_sell"
-            | "fee"
-            | "adjustment";
+          kind: CashTransactionKind;
           ticker: string | null;
           occurred_at: string;
           note: string | null;
@@ -121,14 +124,7 @@ export type Database = {
         Insert: {
           id?: string;
           amount: number;
-          kind:
-            | "deposit"
-            | "withdrawal"
-            | "dividend"
-            | "trade_buy"
-            | "trade_sell"
-            | "fee"
-            | "adjustment";
+          kind: CashTransactionKind;
           ticker?: string | null;
           occurred_at: string;
           note?: string | null;
@@ -138,14 +134,7 @@ export type Database = {
         Update: {
           id?: string;
           amount?: number;
-          kind?:
-            | "deposit"
-            | "withdrawal"
-            | "dividend"
-            | "trade_buy"
-            | "trade_sell"
-            | "fee"
-            | "adjustment";
+          kind?: CashTransactionKind;
           ticker?: string | null;
           occurred_at?: string;
           note?: string | null;
@@ -265,6 +254,33 @@ export type Database = {
           is_daily_close?: boolean;
           close_date?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      ticker_meta: {
+        Row: {
+          ticker: string;
+          target_weight: number | null;
+          intrinsic_value: number | null;
+          value_updated_at: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          ticker: string;
+          target_weight?: number | null;
+          intrinsic_value?: number | null;
+          value_updated_at?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          ticker?: string;
+          target_weight?: number | null;
+          intrinsic_value?: number | null;
+          value_updated_at?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };

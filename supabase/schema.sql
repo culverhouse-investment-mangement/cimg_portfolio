@@ -60,19 +60,55 @@ create index if not exists trades_traded_at_idx on public.trades (traded_at);
 create table if not exists public.cash_transactions (
   id           uuid primary key default gen_random_uuid(),
   amount       numeric(18,4) not null,
-  kind         text not null check (
-    kind in ('deposit','withdrawal','dividend','trade_buy','trade_sell','fee','adjustment')
-  ),
+  kind         text not null,
   ticker       text,
   occurred_at  date not null,
   note         text,
   created_by   uuid references auth.users(id),
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  constraint cash_transactions_kind_valid check (
+    kind in (
+      'deposit','withdrawal','dividend','trade_buy','trade_sell',
+      'fee','adjustment','capital_injection'
+    )
+  )
 );
+
+-- If an earlier revision of this schema created the old unnamed check,
+-- drop it and re-add the named one so `capital_injection` is accepted.
+alter table public.cash_transactions
+  drop constraint if exists cash_transactions_kind_check;
+alter table public.cash_transactions
+  drop constraint if exists cash_transactions_kind_valid;
+alter table public.cash_transactions
+  add  constraint cash_transactions_kind_valid check (
+    kind in (
+      'deposit','withdrawal','dividend','trade_buy','trade_sell',
+      'fee','adjustment','capital_injection'
+    )
+  );
 
 create index if not exists cash_transactions_kind_idx      on public.cash_transactions (kind);
 create index if not exists cash_transactions_occurred_idx  on public.cash_transactions (occurred_at);
 create index if not exists cash_transactions_ticker_idx    on public.cash_transactions (ticker);
+
+-- ---------- ticker_meta ----------
+-- Analyst-maintained, per-ticker metadata. Distinct from positions because
+-- target weight and intrinsic value apply to the ticker as a whole and
+-- change over time, while position lots are immutable.
+--
+--   target_weight     — desired portfolio weight, 0..1 (e.g. 0.04 = 4%)
+--   intrinsic_value   — per-share intrinsic value estimate (USD)
+--   value_updated_at  — when intrinsic_value was last set; drives the
+--                       "since last update" column on the dashboard
+create table if not exists public.ticker_meta (
+  ticker            text primary key check (ticker = upper(ticker)),
+  target_weight     numeric(6,4) check (target_weight is null or (target_weight >= 0 and target_weight <= 1)),
+  intrinsic_value   numeric(18,4) check (intrinsic_value is null or intrinsic_value >= 0),
+  value_updated_at  timestamptz,
+  updated_by        uuid references auth.users(id),
+  updated_at        timestamptz not null default now()
+);
 
 -- ---------- price_ticks ----------
 -- Intraday quotes, written every 15 min during US market hours.
@@ -153,22 +189,36 @@ create table if not exists public.profiles (
 );
 
 -- ---------- seed committees ----------
--- Placeholder names/colors. Replace with the real CIMG committee list.
+-- The canonical 8 CIMG committees. Upsert so re-running the schema
+-- brings the rows in line with the list below.
 insert into public.committees (id, name, description, color, display_order) values
-  ('tech',        'Technology',            null, '#3b82f6', 1),
-  ('consumer',    'Consumer',              null, '#f59e0b', 2),
-  ('healthcare',  'Healthcare',            null, '#10b981', 3),
-  ('financials',  'Financial Services',    null, '#6366f1', 4),
-  ('industrials', 'Industrials',           null, '#ef4444', 5),
-  ('energy',      'Energy & Utilities',    null, '#14b8a6', 6),
-  ('real_estate', 'Real Estate & REITs',   null, '#a855f7', 7)
-on conflict (id) do nothing;
+  ('tech',          'Technology',                                         null, '#3b82f6', 1),
+  ('financials',    'Financials',                                         null, '#6366f1', 2),
+  ('discretionary', 'Consumer Discretionary',                             null, '#f59e0b', 3),
+  ('staples',       'Consumer Staples',                                   null, '#84cc16', 4),
+  ('adt',           'Aerospace, Defense & Transportation',                null, '#ef4444', 5),
+  ('tme',           'Telecom, Media & Entertainment',                     null, '#a855f7', 6),
+  ('ine',           'Industrials & Energy',                               null, '#14b8a6', 7),
+  ('healthcare',    'Healthcare',                                         null, '#10b981', 8)
+on conflict (id) do update set
+  name          = excluded.name,
+  description   = excluded.description,
+  color         = excluded.color,
+  display_order = excluded.display_order;
+
+-- Remove committees that predate the canonical list, but only if nothing
+-- references them. If a position still points at an old committee, the
+-- delete is a no-op and the owner is expected to reassign it first.
+delete from public.committees c
+ where c.id not in ('tech','financials','discretionary','staples','adt','tme','ine','healthcare')
+   and not exists (select 1 from public.positions p where p.committee_id = c.id);
 
 -- ---------- RLS ----------
 alter table public.committees           enable row level security;
 alter table public.positions            enable row level security;
 alter table public.trades               enable row level security;
 alter table public.cash_transactions    enable row level security;
+alter table public.ticker_meta          enable row level security;
 alter table public.price_ticks          enable row level security;
 alter table public.price_snapshots      enable row level security;
 alter table public.fund_snapshots       enable row level security;
@@ -180,6 +230,7 @@ drop policy if exists "public read committees"          on public.committees;
 drop policy if exists "public read positions"           on public.positions;
 drop policy if exists "public read trades"              on public.trades;
 drop policy if exists "public read cash_transactions"   on public.cash_transactions;
+drop policy if exists "public read ticker_meta"         on public.ticker_meta;
 drop policy if exists "public read price_ticks"         on public.price_ticks;
 drop policy if exists "public read price_snapshots"     on public.price_snapshots;
 drop policy if exists "public read fund_snapshots"      on public.fund_snapshots;
@@ -189,6 +240,7 @@ create policy "public read committees"          on public.committees          fo
 create policy "public read positions"           on public.positions           for select using (true);
 create policy "public read trades"              on public.trades              for select using (true);
 create policy "public read cash_transactions"   on public.cash_transactions   for select using (true);
+create policy "public read ticker_meta"         on public.ticker_meta         for select using (true);
 create policy "public read price_ticks"         on public.price_ticks         for select using (true);
 create policy "public read price_snapshots"     on public.price_snapshots     for select using (true);
 create policy "public read fund_snapshots"      on public.fund_snapshots      for select using (true);
@@ -213,16 +265,19 @@ as $$
   );
 $$;
 
--- admin-only writes on positions, trades, and cash_transactions
+-- admin-only writes on positions, trades, cash_transactions, ticker_meta
 drop policy if exists "admin write positions"         on public.positions;
 drop policy if exists "admin write trades"            on public.trades;
 drop policy if exists "admin write cash_transactions" on public.cash_transactions;
+drop policy if exists "admin write ticker_meta"       on public.ticker_meta;
 
 create policy "admin write positions"         on public.positions
   for all using (public.is_admin()) with check (public.is_admin());
 create policy "admin write trades"            on public.trades
   for all using (public.is_admin()) with check (public.is_admin());
 create policy "admin write cash_transactions" on public.cash_transactions
+  for all using (public.is_admin()) with check (public.is_admin());
+create policy "admin write ticker_meta"       on public.ticker_meta
   for all using (public.is_admin()) with check (public.is_admin());
 
 -- Snapshot tables are written only by the service role (which bypasses RLS),

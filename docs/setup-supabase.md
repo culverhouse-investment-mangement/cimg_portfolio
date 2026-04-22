@@ -12,7 +12,7 @@ One-time steps to get a live Supabase project and wire it into the app.
 
 1. Open **SQL Editor** in the left nav.
 2. Paste the full contents of [`supabase/schema.sql`](../supabase/schema.sql) and run it.
-3. Verify in **Table Editor**: you should see `committees` (7 rows), `positions`, `price_ticks`, `price_snapshots`, `fund_snapshots`, `benchmark_snapshots`, and `profiles` (all empty except `committees`).
+3. Verify in **Table Editor**: you should see `committees` (8 rows), `positions`, `trades`, `cash_transactions`, `ticker_meta`, `price_ticks`, `price_snapshots`, `fund_snapshots`, `benchmark_snapshots`, and `profiles` (all empty except `committees`).
 
 The SQL is idempotent — safe to re-run whenever `schema.sql` changes.
 

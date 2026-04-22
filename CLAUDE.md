@@ -18,7 +18,7 @@ Hard requirements (from the owner):
 
 - **Fund vs benchmark chart** — total fund performance vs S&P 500 since inception (inception data supplied later). Time-horizon buttons: `1M / 3M / 6M / YTD / 1Y / All`.
 - **Summary table** — total portfolio value, daily P&L ($ and %), YTD P&L ($ and %), plus toggles to reframe the same stats over other horizons.
-- **Committee allocation pie chart** — 7 committees, each slice = that committee's share of portfolio market value.
+- **Committee allocation pie chart** — 8 committees (Tech, Financials, Discretionary, Staples, ADT, TME, I&E, Healthcare), each slice = that committee's share of portfolio market value.
 - **Positions table** — every current (and optionally closed) position. One toggle switches the table between two views:
   - **Portfolio view**: ticker, name, committee, shares, cost basis, purchase date, current price, market value, unrealized P&L ($ and %), weight.
   - **Fundamentals view**: ticker, market cap, enterprise value, P/E, EPS, dividend yield, sector.
@@ -154,7 +154,7 @@ Admin-only (`POST/PATCH/DELETE`) endpoints live under `/api/admin/*` and require
 - [x] Admin CRUD for positions (`POST /api/admin/positions`, `PATCH .../:id` close) + inline UI
 - [x] Cron handlers: `/api/cron/tick`, `/api/cron/daily` (FMP client, market-hours check, service-role writes)
 - [x] Dashboard UI wired to real data — summary cards, performance chart with range toggle, committee pie, positions table with portfolio/fundamentals toggle
-- [ ] Provision Supabase project, run `supabase/schema.sql`, seed 7 committees *(manual step — see `docs/setup-supabase.md`)*
+- [ ] Provision Supabase project, run `supabase/schema.sql`, seed 8 committees *(manual step — see `docs/setup-supabase.md`)*
 - [ ] Configure GitHub repo secrets `APP_URL` + `CRON_SECRET` and Vercel env vars *(manual step)*
 - [ ] Backfill inception history from CSV once the owner provides it
 - [ ] Vitest coverage for `lib/calc/` (committee allocations, intraday fund series) before first deploy

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "admin-link": "node --env-file=.env.local scripts/admin-link.mjs"
+    "admin-link": "node --env-file=.env.local scripts/admin-link.mjs",
+    "fetch-now": "node --env-file=.env.local scripts/fetch-prices.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

@@ -10,7 +10,8 @@ export async function POST(request: Request) {
   const authFail = checkAuth(request);
   if (authFail) return authFail;
 
-  if (!isWithinMarketHours()) {
+  const force = new URL(request.url).searchParams.get("force") === "1";
+  if (!force && !isWithinMarketHours()) {
     return NextResponse.json({ status: "skipped", reason: "outside_market_hours" });
   }
 

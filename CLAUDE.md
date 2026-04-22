@@ -29,7 +29,7 @@ Hard requirements (from the owner):
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Frontend + API | **Next.js 14 (App Router, TypeScript)** | One repo, server components + route handlers, deploys free on Vercel |
+| Frontend + API | **Next.js 16 (App Router, TypeScript, React 19)** | One repo, server components + route handlers, deploys free on Vercel |
 | UI | **Tailwind CSS + shadcn/ui** | Fast to build, looks clean, no design system to invent |
 | Charts | **Recharts** | React-native, good for line + pie |
 | Database | **Supabase Postgres** | Free tier, row-level security, auto-generated REST |
@@ -56,24 +56,38 @@ If the owner prefers a different stack, update this file **before** scaffolding.
 │   └── workflows/
 │       ├── snapshot-ticks.yml   # every 15 min during US market hours
 │       └── snapshot-daily.yml   # once after close — fundamentals + daily totals
-├── app/                      # Next.js App Router (added on scaffold)
-│   ├── (public)/             # public dashboard
-│   ├── admin/                # PM-only UI, gated by Supabase session
-│   └── api/                  # public + private route handlers
-├── components/               # shared UI
-├── lib/                      # supabase client, market-data client, calc helpers
+├── app/                      # Next.js App Router
+│   ├── layout.tsx            # root layout
+│   ├── page.tsx              # public dashboard
+│   ├── globals.css
+│   ├── admin/                # PM-only UI, gated by Supabase session  (to build)
+│   └── api/                  # public + private route handlers       (to build)
+├── components/               # shared UI                               (to build)
+├── lib/
+│   └── supabase/             # server, browser, proxy clients
+├── proxy.ts                  # Next 16 proxy — refreshes Supabase session cookie
+├── package.json
+├── tsconfig.json
+├── next.config.mjs
+├── tailwind.config.ts
+├── postcss.config.mjs
+├── eslint.config.mjs
 └── .env.example              # required env vars
 ```
 
-Anything not yet created lives only in the docs until it's scaffolded.
+## Setup
 
-## Setup (when scaffolding the Next.js app)
+The app is already scaffolded. After cloning:
 
 ```bash
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias "@/*"
-npm i @supabase/supabase-js @supabase/ssr recharts date-fns zod
-npx shadcn@latest init
+npm install
+cp .env.example .env.local   # then fill in values
+npm run dev                  # http://localhost:3000
 ```
+
+Other scripts: `npm run build`, `npm run lint`, `npm run typecheck`.
+
+When we start building UI components, add shadcn/ui with `npx shadcn@latest init`.
 
 Required env vars (put in `.env.local`; mirror non-secret keys into `.env.example`):
 
@@ -121,6 +135,7 @@ Admin-only (`POST/PATCH/DELETE`) endpoints live under `/api/admin/*` and require
 - **TypeScript strict mode.** No `any` unless narrowing from an external API at the boundary.
 - **Server components by default.** Drop to `"use client"` only for interactive charts/tables.
 - **Calculations live in `lib/`**, not in components — so the API and UI stay consistent.
+- **Next 16 idioms**: `cookies()` is async (`await cookies()`). The request-modifying file is `proxy.ts`, not `middleware.ts`.
 - **Tests**: add Vitest for `lib/` calc functions before the first deploy. UI tests can wait.
 - **Commits**: imperative subject, short body explaining the why. One logical change per commit.
 
@@ -131,9 +146,9 @@ Admin-only (`POST/PATCH/DELETE`) endpoints live under `/api/admin/*` and require
 ## What's done / what's next
 
 - [x] Repo bootstrap: docs, schema sketch, gitignore
-- [ ] Scaffold Next.js app and install deps
+- [x] Scaffold Next.js 16 app + Tailwind + Supabase clients + proxy
 - [ ] Provision Supabase project, run `supabase/schema.sql`, seed 7 committees
-- [ ] Wire Supabase client + auth (magic link for PM)
+- [ ] Wire magic-link login for the PM (admin layout + sign-in page)
 - [ ] Build dashboard read path (summary, chart, pie, positions table)
 - [ ] Build admin CRUD for positions
 - [ ] GitHub Actions: 15-min intraday ticks + daily fundamentals snapshot

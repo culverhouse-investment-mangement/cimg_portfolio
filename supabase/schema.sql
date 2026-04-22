@@ -117,18 +117,29 @@ create table if not exists public.fund_snapshots (
 
 -- ---------- benchmark_snapshots ----------
 -- Holds both intraday ticks and daily closes for the benchmark (SPY).
--- is_daily_close = true marks the official session close.
+-- is_daily_close = true marks the official session close; close_date carries
+-- the session's trading date so we can uniquely index one close per day
+-- without relying on a non-immutable timestamptz → date cast.
 create table if not exists public.benchmark_snapshots (
   symbol          text not null,
   observed_at     timestamptz not null,
   price           numeric(18,4) not null,
   is_daily_close  boolean not null default false,
+  close_date      date,
   created_at      timestamptz not null default now(),
-  primary key (symbol, observed_at)
+  primary key (symbol, observed_at),
+  constraint benchmark_close_date_matches_flag check (
+    (is_daily_close and close_date is not null)
+    or (not is_daily_close and close_date is null)
+  )
 );
 
+-- Backfill for re-runs against an older schema that lacked close_date.
+alter table public.benchmark_snapshots
+  add column if not exists close_date date;
+
 create unique index if not exists benchmark_snapshots_daily_close_uniq
-  on public.benchmark_snapshots (symbol, (observed_at::date))
+  on public.benchmark_snapshots (symbol, close_date)
   where is_daily_close;
 
 create index if not exists benchmark_snapshots_observed_at_idx

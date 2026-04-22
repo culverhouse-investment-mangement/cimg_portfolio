@@ -247,6 +247,7 @@ export type Database = {
           observed_at: string;
           price: number;
           is_daily_close: boolean;
+          close_date: string | null;
           created_at: string;
         };
         Insert: {
@@ -254,6 +255,7 @@ export type Database = {
           observed_at: string;
           price: number;
           is_daily_close?: boolean;
+          close_date?: string | null;
           created_at?: string;
         };
         Update: {
@@ -261,6 +263,7 @@ export type Database = {
           observed_at?: string;
           price?: number;
           is_daily_close?: boolean;
+          close_date?: string | null;
           created_at?: string;
         };
         Relationships: [];

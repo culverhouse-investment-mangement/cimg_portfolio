@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         observed_at: now.toISOString(),
         price: spy.price,
         is_daily_close: true,
+        close_date: today,
       }
     : null;
 

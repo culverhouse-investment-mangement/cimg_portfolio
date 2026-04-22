@@ -71,7 +71,7 @@ export function CashForm({ tickers }: { tickers: string[] }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+    <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
       <div className="flex flex-wrap gap-1">
         {KINDS.map((k) => (
           <button
@@ -80,20 +80,20 @@ export function CashForm({ tickers }: { tickers: string[] }) {
             onClick={() => setKind(k.value)}
             className={`rounded-md px-3 py-1.5 text-sm ${
               kind === k.value
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                : "border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 dark:bg-gray-100 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
             {k.label}
           </button>
         ))}
       </div>
-      <p className="text-xs text-gray-500">{meta.hint}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{meta.hint}</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">
-            Amount <span className="text-gray-400">({meta.sign})</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Amount <span className="text-gray-400 dark:text-gray-500">({meta.sign})</span>
           </span>
           <input
             type="number"
@@ -102,24 +102,24 @@ export function CashForm({ tickers }: { tickers: string[] }) {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder={kind === "adjustment" ? "± amount" : "amount"}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-right text-sm tabular-nums"
+            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-right text-sm tabular-nums"
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Date</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Date</span>
           <input
             type="date"
             required
             value={occurredAt}
             onChange={(e) => setOccurredAt(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
           />
         </label>
       </div>
 
       {needsTicker && (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Ticker</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ticker</span>
           <input
             type="text"
             required
@@ -127,7 +127,7 @@ export function CashForm({ tickers }: { tickers: string[] }) {
             onChange={(e) => setTicker(e.target.value.toUpperCase())}
             list="ticker-list"
             placeholder="AAPL"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase"
+            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm uppercase"
           />
           <datalist id="ticker-list">
             {tickers.map((t) => (
@@ -138,13 +138,13 @@ export function CashForm({ tickers }: { tickers: string[] }) {
       )}
 
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Note</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Note</span>
         <input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Optional"
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
         />
       </label>
 
@@ -158,7 +158,7 @@ export function CashForm({ tickers }: { tickers: string[] }) {
         <button
           type="submit"
           disabled={status === "saving"}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md bg-gray-900 dark:bg-gray-100 px-4 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
         >
           {status === "saving" ? "Saving…" : "Log transaction"}
         </button>

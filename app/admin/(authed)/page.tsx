@@ -23,20 +23,20 @@ export default async function AdminHome() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Portfolio admin</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Cash balance {fmt(cash)} &middot; Dividends total {fmt(dividendTotal)}
           </p>
         </div>
         <div className="flex gap-2">
           <Link
             href="/admin/cash"
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             Cash &amp; dividends
           </Link>
           <Link
             href="/admin/positions/new"
-            className="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="rounded-md bg-gray-900 dark:bg-gray-100 px-3 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200"
           >
             + Add position
           </Link>
@@ -44,7 +44,7 @@ export default async function AdminHome() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Open positions ({open.length})
         </h2>
         {open.length === 0 ? (
@@ -58,7 +58,7 @@ export default async function AdminHome() {
 
       {closed.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Closed ({closed.length})
           </h2>
           <PositionTable rows={closed} closable={false} />
@@ -72,9 +72,9 @@ type Row = Awaited<ReturnType<typeof getPositions>>[number];
 
 function PositionTable({ rows, closable }: { rows: Row[]; closable: boolean }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <table className="min-w-full text-sm">
-        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+        <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
           <tr>
             <th className="px-4 py-2 font-medium">Ticker</th>
             <th className="px-4 py-2 font-medium">Name</th>
@@ -88,12 +88,12 @@ function PositionTable({ rows, closable }: { rows: Row[]; closable: boolean }) {
             {closable && <th className="px-4 py-2 font-medium">Sell</th>}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
           {rows.map((p) => (
             <tr key={p.ticker}>
               <td className="px-4 py-2 font-medium">{p.ticker}</td>
-              <td className="px-4 py-2 text-gray-700">{p.name}</td>
-              <td className="px-4 py-2 text-gray-700">
+              <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{p.name}</td>
+              <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
                 {p.committee?.name ?? "—"}
               </td>
               <td className="px-4 py-2 text-right tabular-nums">
@@ -132,7 +132,7 @@ function PositionTable({ rows, closable }: { rows: Row[]; closable: boolean }) {
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+    <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
       {children}
     </div>
   );

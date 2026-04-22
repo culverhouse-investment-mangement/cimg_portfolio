@@ -57,7 +57,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+    <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Ticker" hint="e.g. AAPL">
           <input
@@ -65,7 +65,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             required
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase tracking-wide"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm uppercase tracking-wide"
             placeholder="AAPL"
             autoComplete="off"
           />
@@ -76,7 +76,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
             placeholder="Apple Inc."
           />
         </Field>
@@ -85,7 +85,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             required
             value={committeeId}
             onChange={(e) => setCommitteeId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-100 px-3 py-2 text-sm"
           >
             {committees.map((c) => (
               <option key={c.id} value={c.id}>
@@ -100,7 +100,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             required
             value={purchasedAt}
             onChange={(e) => setPurchasedAt(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
           />
         </Field>
         <Field label="Shares">
@@ -111,7 +111,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             min="0.0001"
             value={shares}
             onChange={(e) => setShares(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-right text-sm tabular-nums"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-right text-sm tabular-nums"
           />
         </Field>
         <Field label="Cost basis (per share)">
@@ -122,7 +122,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
             min="0"
             value={costBasis}
             onChange={(e) => setCostBasis(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-right text-sm tabular-nums"
+            className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-right text-sm tabular-nums"
           />
         </Field>
       </div>
@@ -132,7 +132,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
           rows={3}
           value={thesis}
           onChange={(e) => setThesis(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
         />
       </Field>
 
@@ -146,7 +146,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
         <button
           type="submit"
           disabled={status === "saving"}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md bg-gray-900 dark:bg-gray-100 px-4 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
         >
           {status === "saving" ? "Saving…" : "Add position"}
         </button>
@@ -166,8 +166,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      {hint && <span className="ml-2 text-xs text-gray-400">{hint}</span>}
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+      {hint && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{hint}</span>}
       <div className="mt-1">{children}</div>
     </label>
   );

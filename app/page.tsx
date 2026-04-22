@@ -5,6 +5,7 @@ import { getPositions } from "@/lib/portfolio/positions";
 import { CommitteePie } from "@/components/committee-pie";
 import { PerformanceChart } from "@/components/performance-chart";
 import { PositionsTable } from "@/components/positions-table";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const revalidate = 60;
 
@@ -38,11 +39,14 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold">CIMG Portfolio</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Updated every 15 minutes during market hours. As of {summary.as_of}.
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">CIMG Portfolio</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Updated every 15 minutes during market hours. As of {summary.as_of}.
+          </p>
+        </div>
+        <ThemeToggle />
       </header>
 
       <section className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -75,31 +79,31 @@ export default async function Home() {
 
       {(summary.dividend_income_total > 0 || summary.dividend_income_ytd > 0) && (
         <section className="mb-8 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-400">
             Dividend income YTD{" "}
-            <span className="font-medium text-gray-900">
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               {fmtCurrency(summary.dividend_income_ytd)}
             </span>
           </span>
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-400">
             All-time{" "}
-            <span className="font-medium text-gray-900">
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               {fmtCurrency(summary.dividend_income_total)}
             </span>
           </span>
         </section>
       )}
 
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+      <section className="mb-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <PerformanceChart />
       </section>
 
       <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
           <h2 className="mb-4 text-lg font-medium">Committee allocation</h2>
           <CommitteePie data={committees} />
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 lg:col-span-2">
           <h2 className="mb-4 text-lg font-medium">Positions</h2>
           <PositionsTable
             positions={positions}
@@ -123,9 +127,9 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="mt-12 border-t border-gray-200 pt-6 text-xs text-gray-400">
+      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 pt-6 text-xs text-gray-400 dark:text-gray-500">
         All data served from the public API at{" "}
-        <code className="rounded bg-gray-100 px-1 py-0.5">/api/portfolio/*</code>.
+        <code className="rounded bg-gray-100 dark:bg-gray-800 px-1 py-0.5">/api/portfolio/*</code>.
         Source on{" "}
         <a
           href="https://github.com/jaxsonliening/cimg_portfolio"
@@ -155,15 +159,15 @@ function StatCard({
       ? "text-green-600"
       : tone === "down"
         ? "text-red-600"
-        : "text-gray-900";
+        : "text-gray-900 dark:text-gray-100";
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+      <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>
         {primary}
       </div>
       {secondary && (
-        <div className="mt-0.5 text-xs tabular-nums text-gray-500">{secondary}</div>
+        <div className="mt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">{secondary}</div>
       )}
     </div>
   );

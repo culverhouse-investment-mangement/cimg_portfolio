@@ -7,7 +7,7 @@ export function CommitteePie({ data }: { data: CommitteeAllocation[] }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (total === 0) {
     return (
-      <div className="flex h-56 items-center justify-center text-sm text-gray-400">
+      <div className="flex h-56 items-center justify-center text-sm text-gray-400 dark:text-gray-500">
         No positions yet
       </div>
     );

@@ -25,7 +25,7 @@ export function SellSharesButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs hover:bg-gray-50"
+        className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-100 px-2.5 py-1 text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
       >
         Sell…
       </button>
@@ -66,10 +66,10 @@ export function SellSharesButton({
         value={shares}
         onChange={(e) => setShares(e.target.value)}
         required
-        className="w-20 rounded border border-gray-300 px-1.5 py-0.5 text-right tabular-nums"
+        className="w-20 rounded border border-gray-300 dark:border-gray-700 px-1.5 py-0.5 text-right tabular-nums"
         title={`Max ${maxShares}`}
       />
-      <span className="text-gray-400">@</span>
+      <span className="text-gray-400 dark:text-gray-500">@</span>
       <input
         type="number"
         step="0.0001"
@@ -78,26 +78,26 @@ export function SellSharesButton({
         value={price}
         onChange={(e) => setPrice(e.target.value)}
         required
-        className="w-24 rounded border border-gray-300 px-1.5 py-0.5 text-right tabular-nums"
+        className="w-24 rounded border border-gray-300 dark:border-gray-700 px-1.5 py-0.5 text-right tabular-nums"
       />
       <input
         type="date"
         value={tradedAt}
         onChange={(e) => setTradedAt(e.target.value)}
         required
-        className="rounded border border-gray-300 px-1.5 py-0.5"
+        className="rounded border border-gray-300 dark:border-gray-700 px-1.5 py-0.5"
       />
       <button
         type="submit"
         disabled={status === "saving"}
-        className="rounded-md bg-gray-900 px-2 py-0.5 text-white hover:bg-gray-800 disabled:opacity-50"
+        className="rounded-md bg-gray-900 dark:bg-gray-100 px-2 py-0.5 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50"
       >
         {status === "saving" ? "…" : "Save"}
       </button>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="text-gray-500 hover:text-gray-700"
+        className="text-gray-500 dark:text-gray-400 hover:text-gray-700"
       >
         Cancel
       </button>

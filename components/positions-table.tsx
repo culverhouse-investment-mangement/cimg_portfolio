@@ -24,7 +24,7 @@ export function PositionsTable({
 
   if (positions.length === 0) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-md bg-gray-50 text-sm text-gray-400">
+      <div className="flex h-56 items-center justify-center rounded-md bg-gray-50 dark:bg-gray-800 text-sm text-gray-400 dark:text-gray-500">
         No open positions yet.
       </div>
     );
@@ -39,20 +39,20 @@ export function PositionsTable({
             onClick={() => setView(v)}
             className={`rounded-md px-2.5 py-1 text-xs ${
               v === view
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                : "border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
             {v === "portfolio" ? "Portfolio" : "Fundamentals"}
           </button>
         ))}
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <table className="min-w-full text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+          <thead className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {view === "portfolio" ? <PortfolioHead /> : <FundamentalsHead />}
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {positions.map((p) => (
               <tr key={p.ticker}>
                 {view === "portfolio" ? (
@@ -184,7 +184,7 @@ function Td({
   return (
     <td
       className={`px-4 py-2 ${right ? "text-right tabular-nums" : ""} ${
-        strong ? "font-medium" : "text-gray-700"
+        strong ? "font-medium" : "text-gray-700 dark:text-gray-300"
       }`}
     >
       {children}

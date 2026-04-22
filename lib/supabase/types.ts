@@ -19,7 +19,14 @@ export type Database = {
           color: string;
           display_order?: number;
         };
-        Update: Partial<Database["public"]["Tables"]["committees"]["Insert"]>;
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          color?: string;
+          display_order?: number;
+        };
+        Relationships: [];
       };
       positions: {
         Row: {
@@ -29,7 +36,7 @@ export type Database = {
           committee_id: string;
           shares: number;
           cost_basis: number;
-          purchased_at: string; // ISO date
+          purchased_at: string;
           thesis: string | null;
           closed_at: string | null;
           close_price: number | null;
@@ -50,17 +57,42 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["positions"]["Insert"]>;
+        Update: {
+          id?: string;
+          ticker?: string;
+          name?: string;
+          committee_id?: string;
+          shares?: number;
+          cost_basis?: number;
+          purchased_at?: string;
+          thesis?: string | null;
+          closed_at?: string | null;
+          close_price?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       price_ticks: {
         Row: {
           ticker: string;
-          observed_at: string; // ISO timestamp
+          observed_at: string;
           price: number;
           source: string;
         };
-        Insert: Database["public"]["Tables"]["price_ticks"]["Row"];
-        Update: Partial<Database["public"]["Tables"]["price_ticks"]["Row"]>;
+        Insert: {
+          ticker: string;
+          observed_at: string;
+          price: number;
+          source: string;
+        };
+        Update: {
+          ticker?: string;
+          observed_at?: string;
+          price?: number;
+          source?: string;
+        };
+        Relationships: [];
       };
       price_snapshots: {
         Row: {
@@ -77,13 +109,35 @@ export type Database = {
           source: string;
           created_at: string;
         };
-        Insert: Omit<
-          Database["public"]["Tables"]["price_snapshots"]["Row"],
-          "created_at"
-        > & { created_at?: string };
-        Update: Partial<
-          Database["public"]["Tables"]["price_snapshots"]["Insert"]
-        >;
+        Insert: {
+          ticker: string;
+          snapshot_date: string;
+          close_price: number;
+          market_cap?: number | null;
+          enterprise_value?: number | null;
+          pe_ratio?: number | null;
+          eps?: number | null;
+          dividend_yield?: number | null;
+          sector?: string | null;
+          industry?: string | null;
+          source: string;
+          created_at?: string;
+        };
+        Update: {
+          ticker?: string;
+          snapshot_date?: string;
+          close_price?: number;
+          market_cap?: number | null;
+          enterprise_value?: number | null;
+          pe_ratio?: number | null;
+          eps?: number | null;
+          dividend_yield?: number | null;
+          sector?: string | null;
+          industry?: string | null;
+          source?: string;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       fund_snapshots: {
         Row: {
@@ -98,7 +152,13 @@ export type Database = {
           cash?: number;
           created_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["fund_snapshots"]["Insert"]>;
+        Update: {
+          snapshot_date?: string;
+          total_value?: number;
+          cash?: number;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       benchmark_snapshots: {
         Row: {
@@ -115,9 +175,14 @@ export type Database = {
           is_daily_close?: boolean;
           created_at?: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["benchmark_snapshots"]["Insert"]
-        >;
+        Update: {
+          symbol?: string;
+          observed_at?: string;
+          price?: number;
+          is_daily_close?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -130,14 +195,22 @@ export type Database = {
           role?: "admin" | "viewer";
           display_name?: string | null;
         };
-        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Update: {
+          user_id?: string;
+          role?: "admin" | "viewer";
+          display_name?: string | null;
+        };
+        Relationships: [];
       };
     };
+    Views: { [_ in never]: never };
     Functions: {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
       };
     };
+    Enums: { [_ in never]: never };
+    CompositeTypes: { [_ in never]: never };
   };
 };

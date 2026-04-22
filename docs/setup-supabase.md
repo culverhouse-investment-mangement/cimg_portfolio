@@ -58,7 +58,7 @@ Once you (or the PM) can reach `/admin`, go to **Admin → Team** (`/admin/team`
 - **Change roles** — dropdown next to each member. Demoting the last remaining admin is blocked server-side so nobody locks the group out.
 - **Rotate ownership** — when the PM graduates, they promote their successor, the successor promotes the next class, the outgoing PM gets demoted. No SQL Editor, no service-role key handoff.
 
-For the normal `/admin/login` magic-link flow to work for self-signup, configure real email delivery (§7).
+For the normal `/admin/login` magic-link flow to deliver emails instead of showing the link inline, configure Resend (§7).
 
 ## 6. Production deploy
 
@@ -68,29 +68,39 @@ When deploying to Vercel, set the same three Supabase env vars in **Project Sett
 - `ALPHA_VANTAGE_API_KEY` — fallback, from [Alpha Vantage](https://www.alphavantage.co).
 - `CRON_SECRET` — generate with `openssl rand -hex 32`. Same value goes into the GitHub Actions repo secret.
 
-## 7. Configure real email delivery (when SMTP gets flaky)
+## 7. Configure email delivery (Resend)
 
-Supabase's built-in SMTP is for testing only. It rate-limits at 4 emails/hour on a shared sender that's often blocked by `.edu` domains, and there's no delivery feedback — mails just silently don't arrive. If `/admin/login` doesn't send emails reliably, point Supabase at a real SMTP provider.
+Supabase's built-in SMTP is unreliable: it rate-limits at a few emails per hour on a shared sender that's often blocked by `.edu` domains, and gives you no delivery feedback. We bypass it entirely — `/admin/login` calls `/api/auth/email-link`, which generates the magic link server-side with the service-role key and sends it through **Resend**.
 
-**Resend** is the simplest option — free tier covers 3,000 emails/month, which is more than CIMG needs.
+> **Until Resend is configured, the login form still works — it just shows the sign-in link inline** on the page for the submitter to paste into their browser. No emails, but nobody is blocked. Same UX as the `/admin/team` invite flow. Turn on Resend to get real email delivery.
 
-1. Create an account at [resend.com](https://resend.com) and verify a sending domain (or use the default `onboarding@resend.dev` for testing).
-2. Generate an API key at Resend → API Keys.
-3. In Supabase → **Authentication → Emails → SMTP Settings**:
-   - Enable custom SMTP.
-   - Host: `smtp.resend.com`
-   - Port: `465`
-   - Username: `resend`
-   - Password: your Resend API key
-   - Sender email: the verified address from step 1.
-4. Save. Test from `/admin/login` — mail should arrive within a few seconds.
+Free tier covers 3,000 emails/month and 100/day, which is more than CIMG needs.
 
-While you're waiting to set this up, **Option A in §5** (`npm run admin-link`) keeps everyone unblocked.
+1. **Sign up** at [resend.com](https://resend.com) — free, no credit card.
+2. **Pick a sender:**
+   - *Quickest:* skip domain verification and use `onboarding@resend.dev` as the sender. This works immediately but only delivers to the email address you signed up with — good for local testing, not for inviting real users.
+   - *For real use:* go to **Domains → Add Domain**, enter the domain you'll send from (e.g. `cimg.example.edu`), and add the DNS records Resend shows you (SPF + DKIM). Verification usually takes a few minutes. Once green, any address on that domain works as a sender.
+3. **Create an API key** at **API Keys → Create API Key**. Full access is fine for this use case. Copy it once — Resend won't show it again.
+4. **Add the env vars** to `.env.local`:
+
+   ```bash
+   RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   RESEND_FROM="CIMG Portfolio <noreply@yourdomain.com>"
+   # or, for quick testing before domain verification:
+   # RESEND_FROM="CIMG Portfolio <onboarding@resend.dev>"
+   ```
+
+   Mirror the same two variables into Vercel → **Project Settings → Environment Variables** for production.
+5. **Restart the dev server** (`Ctrl+C`, `npm run dev`) so Next.js picks up the new env. Rebuild before redeploying to Vercel.
+6. **Test** at `/admin/login`: enter your email, submit. You should see "Check your email" and receive the sign-in link within a few seconds. If the form shows the link inline instead, the env vars aren't being read — double-check the file and the restart.
+
+While you're waiting to verify a domain, `npm run admin-link -- you@example.com --admin` still works as the fastest bootstrap path.
 
 ## Troubleshooting
 
 - **`PGRST125: Invalid path specified in request URL`** — `NEXT_PUBLIC_SUPABASE_URL` has `/rest/v1` or a trailing slash. Trim it to just `https://<ref>.supabase.co`.
-- **`/admin/login` says "Check your email" but nothing arrives** — Supabase default SMTP silently rate-limited or blocked. Use `npm run admin-link -- email@example.com --admin` to get in, then configure Resend (§7) to fix the normal flow.
+- **`/admin/login` says "Check your email" but nothing arrives** — Resend accepted the send but delivery is failing (bounced, filtered, or the sender domain isn't verified). Check Resend → **Logs** for the specific error. As a temporary unblock, `npm run admin-link -- email@example.com --admin` prints a paste-able sign-in URL.
+- **`/admin/login` shows the link inline instead of sending email** — `RESEND_API_KEY` or `RESEND_FROM` isn't set in the server env. Copy both into `.env.local` (and Vercel), then restart.
 - **Magic link opens but lands on the home page logged out** — `redirect_to` is pointing at `/` instead of `/auth/callback`. The Site URL alone isn't enough; add `/auth/callback` explicitly under Redirect URLs.
 - **New user didn't get a `profiles` row** — confirm the `on_auth_user_created` trigger exists (Database → Triggers).
 - **RLS blocking a query in dev** — you're probably hitting it with the anon key when you need the service role; double-check you're in a server route handler and that it's an admin-only path.

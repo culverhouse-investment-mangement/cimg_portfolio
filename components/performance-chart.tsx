@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
+import { ExportButton } from "./export-button";
 
 const RANGES = ["1D", "1M", "3M", "6M", "YTD", "1Y", "ALL"] as const;
 type Range = (typeof RANGES)[number];
@@ -45,20 +46,29 @@ export function PerformanceChart() {
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-medium">Fund vs S&amp;P 500</h2>
-        <div className="flex gap-1">
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`rounded-md px-2.5 py-1 text-xs ${
-                r === range
-                  ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
-                  : "border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`rounded-md px-2.5 py-1 text-xs ${
+                  r === range
+                    ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                    : "border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <ExportButton
+            filename={`performance-${range}.csv`}
+            build={() => ({
+              headers: ["Date", "Fund ($)", "S&P 500"],
+              rows: data.map((p) => [p.t, p.fund, p.benchmark]),
+            })}
+          />
         </div>
       </div>
 

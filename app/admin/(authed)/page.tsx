@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getPositions } from "@/lib/portfolio/positions";
+import { getTickerPositions } from "@/lib/portfolio/positions";
 import { SellSharesButton } from "./sell-shares-button";
 
 export default async function AdminHome() {
   const supabase = await createClient();
 
-  const positions = await getPositions(supabase, { includeClosed: true });
+  const positions = await getTickerPositions(supabase, { includeClosed: true });
   const open = positions.filter((p) => p.shares_remaining > 0);
   const closed = positions.filter((p) => p.shares_remaining === 0);
 
@@ -68,7 +68,7 @@ export default async function AdminHome() {
   );
 }
 
-type Row = Awaited<ReturnType<typeof getPositions>>[number];
+type Row = Awaited<ReturnType<typeof getTickerPositions>>[number];
 
 function PositionTable({ rows, closable }: { rows: Row[]; closable: boolean }) {
   return (

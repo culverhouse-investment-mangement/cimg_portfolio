@@ -90,21 +90,29 @@ All current positions (closed positions excluded by default; pass `?include=clos
 
 ## `GET /api/portfolio/positions/:ticker`
 
-Single position with latest fundamentals.
+All lots for a ticker plus the latest fundamentals. One ticker can have multiple lots (the data model treats corrections as new rows rather than edits), so the response returns a `lots` array ordered by purchase date.
 
 ```json
 {
   "ticker": "AAPL",
   "name": "Apple Inc.",
-  "committee": { "id": "tech", "name": "Technology" },
-  "shares": 12,
-  "cost_basis": 142.10,
-  "purchased_at": "2024-09-17",
-  "thesis": "...",
   "current_price": 198.44,
-  "market_value": 2381.28,
-  "unrealized_pnl": 676.08,
-  "unrealized_pct": 0.3964,
+  "lots": [
+    {
+      "id": "8b9...",
+      "committee": { "id": "tech", "name": "Technology" },
+      "shares": 12,
+      "cost_basis": 142.10,
+      "purchased_at": "2024-09-17",
+      "thesis": "...",
+      "closed_at": null,
+      "close_price": null,
+      "market_value": 2381.28,
+      "unrealized_pnl": 676.08,
+      "unrealized_pct": 0.3964,
+      "realized_pnl": null
+    }
+  ],
   "fundamentals": {
     "market_cap": 3010000000000,
     "enterprise_value": 3040000000000,
@@ -117,6 +125,8 @@ Single position with latest fundamentals.
   }
 }
 ```
+
+Closed lots have `closed_at`, `close_price`, and `realized_pnl` populated; their `market_value` / `unrealized_*` are `null`.
 
 ## Errors
 

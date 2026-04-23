@@ -58,16 +58,16 @@ export default async function Home() {
         <PerformanceChart />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
-        <h2 className="mb-4 text-lg font-medium">Committee Allocation</h2>
-        <CommitteePie data={committees} />
-      </section>
-
       <section className="mb-10">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
           Positions
         </h2>
         <PositionsTable positions={positions} />
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+        <h2 className="mb-4 text-lg font-medium">Committee Allocation</h2>
+        <CommitteePie data={committees} />
       </section>
 
       <footer className="mt-12 border-t border-gray-200/70 dark:border-gray-800 pt-6 text-xs text-gray-400 dark:text-gray-500">

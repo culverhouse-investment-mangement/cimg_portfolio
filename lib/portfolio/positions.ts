@@ -330,7 +330,7 @@ export type EnrichedLot = AllocatedLot & {
 export type TickerPosition = {
   ticker: string;
   name: string;
-  committee: { id: string; name: string } | null;
+  committee: { id: string; name: string; color: string | null } | null;
   shares_remaining: number;
   avg_cost_basis: number | null;
   current_price: number | null;
@@ -413,7 +413,9 @@ export async function getTickerPositions(
       _open: sharesRemaining > 0,
       ticker,
       name: primary?.name ?? ticker,
-      committee: committee ? { id: committee.id, name: committee.name } : null,
+      committee: committee
+        ? { id: committee.id, name: committee.name, color: committee.color ?? null }
+        : null,
       shares_remaining: round4(sharesRemaining),
       avg_cost_basis: avgCost,
       current_price: currentPrice,

@@ -25,7 +25,12 @@ const OVERLAY_LABELS: Record<Overlay, string> = {
   alpha30: "Alpha 30d",
 };
 
-const ROLLING_WINDOW = 30;
+// 30 calendar days, not 30 array positions. Data points can be
+// sparse (monthly fund_snapshots before reconstruct-history was run),
+// so indexing by array position would make the overlay all-null when
+// there aren't 30 rows. Date-based indexing produces an overlay the
+// moment we have any two points spanning 30 days.
+const ROLLING_WINDOW_DAYS = 30;
 
 type Point = { t: string; fund: number; benchmark: number | null };
 type ChartRow = {
@@ -84,12 +89,13 @@ export function PerformanceChart() {
         : null,
     );
 
+    const dates = data.map((p) => p.t);
     const overlayValues: (number | null)[] =
       effectiveOverlay === "off"
         ? data.map(() => null)
         : effectiveOverlay === "rolling30"
-          ? rollingReturn(cimg, ROLLING_WINDOW)
-          : rollingAlpha(cimg, spy, ROLLING_WINDOW);
+          ? rollingReturnByDate(cimg, dates, ROLLING_WINDOW_DAYS)
+          : rollingAlphaByDate(cimg, spy, dates, ROLLING_WINDOW_DAYS);
 
     return data.map((p, i) => ({
       t: p.t,
@@ -282,30 +288,52 @@ function firstPositive(values: number[]): number | null {
  *
  * Returns an array the same length as `values`, with the first `window` entries null.
  */
-function rollingReturn(
+// Trailing return over `windowDays` calendar days. For each point i,
+// finds the latest prior point whose date is on or before
+// (date[i] − windowDays) and computes the return between them using
+// the normalized-percent series (price ratio = 1 + n/100).
+//
+// Unlike an index-based window, this keeps working on sparse series
+// (e.g. monthly-only fund_snapshots) and won't suddenly go null when
+// the data cadence changes.
+function rollingReturnByDate(
   values: (number | null)[],
-  window: number,
+  dates: string[],
+  windowDays: number,
 ): (number | null)[] {
   const out: (number | null)[] = new Array(values.length).fill(null);
-  for (let i = window; i < values.length; i += 1) {
+  const ms = new Array(dates.length);
+  for (let i = 0; i < dates.length; i++) ms[i] = Date.parse(dates[i]);
+  const windowMs = windowDays * 24 * 60 * 60 * 1000;
+
+  for (let i = 1; i < values.length; i++) {
     const now = values[i];
-    const prev = values[i - window];
-    if (now === null || prev === null) continue;
+    if (now === null || !Number.isFinite(ms[i])) continue;
+    const cutoff = ms[i] - windowMs;
+    // Walk backwards to find the latest point with ms[j] <= cutoff.
+    let prev: number | null = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (ms[j] <= cutoff) {
+        prev = values[j];
+        break;
+      }
+    }
+    if (prev === null) continue;
     const denom = 1 + prev / 100;
     if (denom === 0) continue;
-    const ratio = (1 + now / 100) / denom;
-    out[i] = (ratio - 1) * 100;
+    out[i] = ((1 + now / 100) / denom - 1) * 100;
   }
   return out;
 }
 
-function rollingAlpha(
+function rollingAlphaByDate(
   cimg: (number | null)[],
   spy: (number | null)[],
-  window: number,
+  dates: string[],
+  windowDays: number,
 ): (number | null)[] {
-  const cimgRoll = rollingReturn(cimg, window);
-  const spyRoll = rollingReturn(spy, window);
+  const cimgRoll = rollingReturnByDate(cimg, dates, windowDays);
+  const spyRoll = rollingReturnByDate(spy, dates, windowDays);
   return cimgRoll.map((c, i) => {
     const s = spyRoll[i];
     if (c === null || s === null) return null;

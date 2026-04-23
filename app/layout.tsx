@@ -15,7 +15,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const theme = (await cookies()).get("theme")?.value === "dark" ? "dark" : "";
+  // Default to dark; only switch to light if the user has explicitly
+  // chosen it via the theme toggle (which sets the cookie).
+  const theme = (await cookies()).get("theme")?.value === "light" ? "" : "dark";
 
   return (
     <html lang="en" className={theme}>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordAuditEvent } from "@/lib/audit/log";
 
 // PATCH /api/admin/ticker-meta
 // Body: { ticker, target_weight?, intrinsic_value?, value_updated_at? }
@@ -54,7 +55,7 @@ const PatchSchema = z
   });
 
 export async function PATCH(request: Request) {
-  let caller: { userId: string };
+  let caller: Awaited<ReturnType<typeof requireAdmin>>;
   try {
     caller = await requireAdmin();
   } catch (res) {
@@ -113,6 +114,15 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
+
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "ticker_meta.update",
+    resourceType: "ticker_meta",
+    resourceId: ticker,
+    changes: payload,
+  });
 
   return NextResponse.json({ ok: true });
 }

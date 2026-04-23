@@ -50,6 +50,9 @@ export default async function AdminAuthedLayout({
               <Link href="/admin/team" className="hover:text-gray-900 dark:hover:text-gray-100">
                 Team
               </Link>
+              <Link href="/admin/audit" className="hover:text-gray-900 dark:hover:text-gray-100">
+                Audit
+              </Link>
             </nav>
             <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
               {profile.display_name ?? user.email}

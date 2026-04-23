@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { recordAuditEvent } from "@/lib/audit/log";
+
+type Caller = Awaited<ReturnType<typeof requireAdmin>>;
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CashTransactionKind } from "@/lib/supabase/types";
 
@@ -55,7 +58,7 @@ const CreateCashSchema = z
   });
 
 export async function POST(request: Request) {
-  let caller: { userId: string };
+  let caller: Caller;
   try {
     caller = await requireAdmin();
   } catch (res) {
@@ -97,6 +100,15 @@ export async function POST(request: Request) {
     );
   }
 
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "cash.create",
+    resourceType: "cash_transactions",
+    resourceId: inserted.id,
+    changes: parsed.data,
+  });
+
   return NextResponse.json({ id: inserted.id }, { status: 201 });
 }
 
@@ -115,8 +127,9 @@ const PatchCashSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
+  let caller: Caller;
   try {
-    await requireAdmin();
+    caller = await requireAdmin();
   } catch (res) {
     return res as Response;
   }
@@ -208,6 +221,15 @@ export async function PATCH(request: Request) {
     );
   }
 
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "cash.update",
+    resourceType: "cash_transactions",
+    resourceId: parsed.data.id,
+    changes: patch,
+  });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -216,8 +238,9 @@ export async function PATCH(request: Request) {
 // must not be removable here, because deleting one would strand the
 // corresponding position leg.
 export async function DELETE(request: Request) {
+  let caller: Caller;
   try {
-    await requireAdmin();
+    caller = await requireAdmin();
   } catch (res) {
     return res as Response;
   }
@@ -257,6 +280,15 @@ export async function DELETE(request: Request) {
       { status: 400 },
     );
   }
+
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "cash.delete",
+    resourceType: "cash_transactions",
+    resourceId: id,
+    changes: { prior_kind: existing.kind },
+  });
 
   return NextResponse.json({ ok: true });
 }

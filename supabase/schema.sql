@@ -283,6 +283,36 @@ create policy "admin write ticker_meta"       on public.ticker_meta
 -- Snapshot tables are written only by the service role (which bypasses RLS),
 -- so no INSERT/UPDATE policies are granted to regular users.
 
+-- ---------- audit_log ----------
+-- Append-only record of every admin action. Admin routes insert a row
+-- per successful mutation with the actor, a dotted action (e.g.
+-- "cash.delete", "users.promote"), the resource being modified, and
+-- a JSONB diff. Actor email is snapshotted at write time so removing
+-- a user doesn't strand their prior actions as "unknown".
+create table if not exists public.audit_log (
+  id               uuid primary key default gen_random_uuid(),
+  actor_user_id    uuid references auth.users(id) on delete set null,
+  actor_email      text,
+  action           text not null,
+  resource_type    text,
+  resource_id      text,
+  changes          jsonb,
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists audit_log_created_at_idx on public.audit_log (created_at desc);
+create index if not exists audit_log_actor_idx      on public.audit_log (actor_user_id);
+create index if not exists audit_log_action_idx     on public.audit_log (action);
+
+alter table public.audit_log enable row level security;
+
+-- Admins can read the log. Writes happen through the service role
+-- key from within admin API route handlers, so no INSERT policy
+-- for user sessions.
+drop policy if exists "admin read audit_log" on public.audit_log;
+create policy "admin read audit_log" on public.audit_log
+  for select using (public.is_admin());
+
 -- ---------- auto-create profiles row on signup ----------
 -- Every new auth.users row gets a matching public.profiles row with
 -- role='viewer'. Promote a user to admin by running:

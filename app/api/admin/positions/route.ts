@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordAuditEvent } from "@/lib/audit/log";
 
 const CreatePositionSchema = z.object({
   ticker: z
@@ -20,7 +21,7 @@ const CreatePositionSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  let caller: { userId: string };
+  let caller: Awaited<ReturnType<typeof requireAdmin>>;
   try {
     caller = await requireAdmin();
   } catch (res) {
@@ -82,6 +83,20 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "position.create",
+    resourceType: "positions",
+    resourceId: inserted.id,
+    changes: {
+      ticker: parsed.data.ticker,
+      shares: parsed.data.shares,
+      cost_basis: parsed.data.cost_basis,
+      committee: parsed.data.committee_id,
+    },
+  });
 
   return NextResponse.json({ id: inserted.id }, { status: 201 });
 }

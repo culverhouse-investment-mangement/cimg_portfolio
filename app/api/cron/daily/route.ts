@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchQuotes, fetchProfiles } from "@/lib/market/fmp";
+import { fetchFullQuotes, fetchProfiles } from "@/lib/market/fmp";
 import { getActiveSharesByTicker } from "@/lib/portfolio/active-tickers";
 
 const BENCHMARK = "SPY";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const symbols = Array.from(new Set([...tickers, BENCHMARK]));
 
   const [quotes, profiles] = await Promise.all([
-    fetchQuotes(symbols).catch((err: unknown) => ({ __err: err }) as const),
+    fetchFullQuotes(symbols).catch((err: unknown) => ({ __err: err }) as const),
     tickers.length
       ? fetchProfiles(tickers).catch((err: unknown) => ({ __err: err }) as const)
       : Promise.resolve([]),

@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
 
 export function LoginForm() {
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState("");
 
   const unauthorized = params.get("unauthorized") === "1";
   const callbackFailed = params.get("error") === "1";
@@ -18,43 +19,51 @@ export function LoginForm() {
     setStatus("sending");
     setErrorMsg(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/admin`,
-      },
+    const res = await fetch("/api/auth/email-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
+    const body = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      delivery?: "email";
+      error?: string;
+    };
 
-    if (error) {
-      setErrorMsg(error.message);
+    if (!res.ok || !body.ok || body.delivery !== "email") {
+      setErrorMsg(body.error ?? "Something went wrong. Try again.");
       setStatus("idle");
-    } else {
-      setStatus("sent");
+      return;
     }
+
+    setSentTo(email);
+    setStatus("sent");
   }
 
   return (
     <main className="mx-auto mt-16 max-w-md p-6">
-      <h1 className="text-2xl font-semibold">Admin Sign In</h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Magic-link sign-in for the CIMG Portfolio Manager.
-      </p>
+      <Link
+        href="/"
+        className="inline-flex items-center text-sm text-gray-500 dark:text-gray-400 transition-colors hover:text-gray-900 dark:hover:text-gray-100"
+      >
+        ← Back to Portfolio
+      </Link>
+      <h1 className="mt-4 text-2xl font-semibold">Admin Sign In</h1>
 
       {unauthorized && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Your account isn&apos;t marked as an admin. Ask an existing admin to promote you.
+          Your account is not an admin.
         </div>
       )}
       {callbackFailed && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          That magic link didn&apos;t work — it may have expired. Request a new one below.
+          That link expired. Request a new one.
         </div>
       )}
 
       {status === "sent" ? (
         <div className="mt-6 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          Check <strong>{email}</strong> for a sign-in link. You can close this tab.
+          Check <strong>{sentTo}</strong> for a sign-in link.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-6 space-y-4">

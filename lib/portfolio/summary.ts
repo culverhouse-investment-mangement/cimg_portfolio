@@ -1,26 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import type { PortfolioSummary } from "@/lib/portfolio/types";
 import { latestPricesFor } from "@/lib/queries/latest-prices";
 import { allocateTradesFifo } from "@/lib/calc/lots";
 
-export type PortfolioSummary = {
-  as_of: string;
-  total_value: number;
-  cash: number;
-  daily_pnl: number | null;
-  daily_pct: number | null;
-  ytd_pnl: number | null;
-  ytd_pct: number | null;
-  inception_pnl: number | null;
-  inception_pct: number | null;
-  dividend_income_ytd: number;
-  dividend_income_total: number;
-};
+const BENCHMARK = "SPY";
 
-export async function getPortfolioSummary(
+export async function getSummary(
   supabase: SupabaseClient<Database>,
 ): Promise<PortfolioSummary> {
-  const [lotsRes, tradesRes, cashRes] = await Promise.all([
+  const [
+    lotsRes,
+    tradesRes,
+    cashRes,
+    metaRes,
+    fundRes,
+    benchmarkRes,
+  ] = await Promise.all([
     supabase
       .from("positions")
       .select("id, ticker, shares, cost_basis, purchased_at"),
@@ -28,114 +24,204 @@ export async function getPortfolioSummary(
     supabase
       .from("cash_transactions")
       .select("amount, kind, occurred_at"),
+    supabase
+      .from("ticker_meta")
+      .select("ticker, intrinsic_value, value_updated_at"),
+    supabase
+      .from("fund_snapshots")
+      .select("snapshot_date, total_value")
+      .order("snapshot_date", { ascending: true }),
+    supabase
+      .from("benchmark_snapshots")
+      .select("observed_at, price, close_date")
+      .eq("symbol", BENCHMARK)
+      .eq("is_daily_close", true)
+      .order("observed_at", { ascending: true }),
   ]);
   if (lotsRes.error) throw lotsRes.error;
   if (tradesRes.error) throw tradesRes.error;
   if (cashRes.error) throw cashRes.error;
+  if (metaRes.error) throw metaRes.error;
+  if (fundRes.error) throw fundRes.error;
+  if (benchmarkRes.error) throw benchmarkRes.error;
 
-  // Shares remaining per ticker via FIFO.
-  const lotsByTicker = new Map<string, typeof lotsRes.data>();
-  for (const lot of lotsRes.data) {
-    const arr = lotsByTicker.get(lot.ticker) ?? [];
-    arr.push(lot);
-    lotsByTicker.set(lot.ticker, arr);
-  }
-  const tradesByTicker = new Map<string, typeof tradesRes.data>();
-  for (const trade of tradesRes.data) {
-    const arr = tradesByTicker.get(trade.ticker) ?? [];
-    arr.push(trade);
-    tradesByTicker.set(trade.ticker, arr);
-  }
+  const lotsByTicker = groupBy(lotsRes.data, (l) => l.ticker);
+  const tradesByTicker = groupBy(tradesRes.data, (t) => t.ticker);
 
   const sharesByTicker = new Map<string, number>();
   for (const [ticker, lots] of lotsByTicker) {
     const allocated = allocateTradesFifo(lots, tradesByTicker.get(ticker) ?? []);
-    const remaining = allocated.reduce((sum, a) => sum + a.remaining_shares, 0);
+    const remaining = allocated.reduce((s, a) => s + a.remaining_shares, 0);
     if (remaining > 0) sharesByTicker.set(ticker, remaining);
   }
 
-  const tickers = Array.from(sharesByTicker.keys());
-  const prices = await latestPricesFor(supabase, tickers);
+  const heldTickers = Array.from(sharesByTicker.keys());
+  const prices = await latestPricesFor(supabase, heldTickers);
 
-  const openMarketValue = Array.from(sharesByTicker.entries()).reduce(
-    (sum, [ticker, shares]) => sum + shares * (prices.get(ticker) ?? 0),
-    0,
-  );
+  const marketValueEquities = heldTickers.reduce((sum, t) => {
+    const price = prices.get(t);
+    const shares = sharesByTicker.get(t) ?? 0;
+    return price === undefined ? sum : sum + shares * price;
+  }, 0);
 
-  const cash = cashRes.data.reduce((sum, row) => sum + row.amount, 0);
-  const totalValue = openMarketValue + cash;
+  const cashBalance = cashRes.data.reduce((s, r) => s + r.amount, 0);
+  const marketValuePortfolio = marketValueEquities + cashBalance;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const yearStart = `${new Date().getUTCFullYear()}-01-01`;
+  const intrinsicByTicker = new Map<string, number | null>();
+  for (const m of metaRes.data) intrinsicByTicker.set(m.ticker, m.intrinsic_value);
 
-  const dividendIncomeTotal = cashRes.data
-    .filter((r) => r.kind === "dividend")
-    .reduce((sum, r) => sum + r.amount, 0);
-  const dividendIncomeYtd = cashRes.data
-    .filter((r) => r.kind === "dividend" && r.occurred_at >= yearStart)
-    .reduce((sum, r) => sum + r.amount, 0);
+  let intrinsicSum = 0;
+  let missingIntrinsic = false;
+  for (const ticker of heldTickers) {
+    const iv = intrinsicByTicker.get(ticker);
+    if (iv === undefined || iv === null) {
+      missingIntrinsic = true;
+      continue;
+    }
+    intrinsicSum += (sharesByTicker.get(ticker) ?? 0) * iv;
+  }
+  const intrinsicValuePortfolio = intrinsicSum + cashBalance;
+  const equityVpExCash =
+    missingIntrinsic || marketValueEquities === 0
+      ? null
+      : intrinsicSum / marketValueEquities;
 
-  const [latestFundRes, previousFundRes, ytdFundRes, inceptionFundRes] =
-    await Promise.all([
-      supabase
-        .from("fund_snapshots")
-        .select("snapshot_date")
-        .order("snapshot_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("fund_snapshots")
-        .select("total_value")
-        .lt("snapshot_date", today)
-        .order("snapshot_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("fund_snapshots")
-        .select("total_value")
-        .gte("snapshot_date", yearStart)
-        .order("snapshot_date", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("fund_snapshots")
-        .select("total_value")
-        .order("snapshot_date", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  const capitalInjectionDate =
+    cashRes.data
+      .filter((r) => r.kind === "capital_injection")
+      .map((r) => r.occurred_at)
+      .sort()
+      .pop() ?? null;
+
+  let lastUpdateTradingDay: string | null = null;
+  for (const m of metaRes.data) {
+    if (m.value_updated_at === null) continue;
+    const date = m.value_updated_at.slice(0, 10);
+    if (lastUpdateTradingDay === null || date > lastUpdateTradingDay) {
+      lastUpdateTradingDay = date;
+    }
+  }
+
+  const fundSeries = fundRes.data.map((f) => ({
+    date: f.snapshot_date,
+    value: f.total_value,
+  }));
+  const spyDailySeries = benchmarkRes.data.map((b) => ({
+    date: b.close_date ?? b.observed_at.slice(0, 10),
+    value: b.price,
+  }));
+
+  const cimgPreCapital = pctChangePreInjection(fundSeries, capitalInjectionDate);
+  const cimgPostCapital = pctChangePostInjection(fundSeries, capitalInjectionDate);
+  const spyPreCapital = pctChangePreInjection(spyDailySeries, capitalInjectionDate);
+  const spyPostCapital = pctChangePostInjection(spyDailySeries, capitalInjectionDate);
+
+  const currentYear = new Date().getUTCFullYear();
+  const yearStart = `${currentYear}-01-01`;
+  const cimgYtd = pctChangeYtd(fundSeries, yearStart);
+  const spyYtd = pctChangeYtd(spyDailySeries, yearStart);
+
+  const latestFund = fundSeries[fundSeries.length - 1];
+  const previousFundBeforeLatest = latestFund
+    ? [...fundSeries].filter((f) => f.date < latestFund.date).pop()
+    : undefined;
+  const cimgDayChange =
+    previousFundBeforeLatest && previousFundBeforeLatest.value > 0
+      ? (marketValuePortfolio - previousFundBeforeLatest.value) /
+        previousFundBeforeLatest.value
+      : null;
+
+  const spyDayChange =
+    spyDailySeries.length >= 2
+      ? (() => {
+          const last = spyDailySeries[spyDailySeries.length - 1];
+          const prev = spyDailySeries[spyDailySeries.length - 2];
+          return prev.value > 0 ? (last.value - prev.value) / prev.value : null;
+        })()
+      : null;
+
+  const asOfCandidates: string[] = [];
+  if (latestFund) asOfCandidates.push(latestFund.date);
+  if (spyDailySeries.length > 0) {
+    asOfCandidates.push(spyDailySeries[spyDailySeries.length - 1].date);
+  }
+  if (lastUpdateTradingDay) asOfCandidates.push(lastUpdateTradingDay);
+  const asOf = asOfCandidates.length
+    ? asOfCandidates.sort().pop()!
+    : new Date().toISOString().slice(0, 10);
+
+  const cashPositionPct =
+    marketValuePortfolio > 0 ? cashBalance / marketValuePortfolio : 0;
 
   return {
-    as_of: latestFundRes.data?.snapshot_date ?? today,
-    total_value: round2(totalValue),
-    cash: round2(cash),
-    ...delta(totalValue, previousFundRes.data?.total_value, "daily"),
-    ...delta(totalValue, ytdFundRes.data?.total_value, "ytd"),
-    ...delta(totalValue, inceptionFundRes.data?.total_value, "inception"),
-    dividend_income_ytd: round2(dividendIncomeYtd),
-    dividend_income_total: round2(dividendIncomeTotal),
+    market_value_equities: marketValueEquities,
+    cash_balance: cashBalance,
+    cash_position_pct: cashPositionPct,
+    market_value_portfolio: marketValuePortfolio,
+    intrinsic_value_portfolio: intrinsicValuePortfolio,
+    equity_vp_ex_cash: equityVpExCash,
+
+    cimg_pre_capital_injection_pct: cimgPreCapital,
+    spy_pre_capital_injection_pct: spyPreCapital,
+    cimg_post_capital_injection_pct: cimgPostCapital,
+    spy_post_capital_injection_pct: spyPostCapital,
+    cimg_ytd_pct: cimgYtd,
+    spy_ytd_pct: spyYtd,
+    cimg_day_change_pct: cimgDayChange,
+    spy_day_change_pct: spyDayChange,
+
+    last_update_trading_day: lastUpdateTradingDay,
+    capital_injection_date: capitalInjectionDate,
+    as_of: asOf,
   };
 }
 
-function delta(
-  current: number,
-  baseline: number | undefined,
-  prefix: "daily" | "ytd" | "inception",
-): Record<`${typeof prefix}_pnl` | `${typeof prefix}_pct`, number | null> {
-  if (baseline === undefined) {
-    return {
-      [`${prefix}_pnl`]: null,
-      [`${prefix}_pct`]: null,
-    } as ReturnType<typeof delta>;
+type DatedValue = { date: string; value: number };
+
+function pctChangePreInjection(
+  series: DatedValue[],
+  injectionDate: string | null,
+): number | null {
+  if (!injectionDate || series.length < 2) return null;
+  const first = series[0];
+  const lastBefore = [...series].filter((s) => s.date < injectionDate).pop();
+  if (!lastBefore || first.value <= 0 || first.date === lastBefore.date) {
+    return null;
   }
-  const pnl = current - baseline;
-  const pct = baseline > 0 ? pnl / baseline : null;
-  return {
-    [`${prefix}_pnl`]: round2(pnl),
-    [`${prefix}_pct`]: pct,
-  } as ReturnType<typeof delta>;
+  return (lastBefore.value - first.value) / first.value;
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+function pctChangePostInjection(
+  series: DatedValue[],
+  injectionDate: string | null,
+): number | null {
+  if (!injectionDate || series.length === 0) return null;
+  const firstOnOrAfter = series.find((s) => s.date >= injectionDate);
+  const last = series[series.length - 1];
+  if (!firstOnOrAfter || firstOnOrAfter.date === last.date) return null;
+  if (firstOnOrAfter.value <= 0) return null;
+  return (last.value - firstOnOrAfter.value) / firstOnOrAfter.value;
+}
+
+function pctChangeYtd(
+  series: DatedValue[],
+  yearStart: string,
+): number | null {
+  const ytd = series.filter((s) => s.date >= yearStart);
+  if (ytd.length < 2) return null;
+  const first = ytd[0];
+  const last = ytd[ytd.length - 1];
+  if (first.value <= 0 || first.date === last.date) return null;
+  return (last.value - first.value) / first.value;
+}
+
+function groupBy<T, K>(items: T[], keyFn: (item: T) => K): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const item of items) {
+    const key = keyFn(item);
+    const arr = map.get(key) ?? [];
+    arr.push(item);
+    map.set(key, arr);
+  }
+  return map;
 }

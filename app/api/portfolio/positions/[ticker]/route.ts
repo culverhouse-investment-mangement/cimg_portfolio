@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPositions } from "@/lib/portfolio/positions";
+import { getTickerPositions } from "@/lib/portfolio/positions";
 
 export const revalidate = 60;
 
@@ -15,7 +15,7 @@ export async function GET(
 
   let all;
   try {
-    all = await getPositions(supabase, { includeClosed: true });
+    all = await getTickerPositions(supabase, { includeClosed: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
     return NextResponse.json(

@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getPortfolioSummary } from "@/lib/portfolio/summary";
-import { getCommitteeAllocations } from "@/lib/portfolio/committees";
+import { getSummary } from "@/lib/portfolio/summary";
 import { getPositions } from "@/lib/portfolio/positions";
+import { getWinnersLosers } from "@/lib/portfolio/winners-losers";
+import { getCommitteeAllocations } from "@/lib/portfolio/committees";
 import { CommitteePie } from "@/components/committee-pie";
 import { PerformanceChart } from "@/components/performance-chart";
 import { PositionsTable } from "@/components/positions-table";
+import { SummaryPanel } from "@/components/summary-panel";
+import { WinnersLosersPanel } from "@/components/winners-losers-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export const revalidate = 60;
@@ -13,44 +16,28 @@ export const revalidate = 60;
 export default async function Home() {
   const supabase = await createClient();
 
-  // Run reads in parallel so the page serves in one round-trip's worth of latency.
-  const [summary, committees, positions] = await Promise.all([
-    getPortfolioSummary(supabase),
-    getCommitteeAllocations(supabase),
+  const [summary, positions, moves, committees] = await Promise.all([
+    getSummary(supabase),
     getPositions(supabase),
+    getWinnersLosers(supabase),
+    getCommitteeAllocations(supabase),
   ]);
 
-  // Fundamentals for the table's "Fundamentals" view — one query for all tickers.
-  const tickers = Array.from(new Set(positions.map((p) => p.ticker)));
-  const { data: snapshots } =
-    tickers.length === 0
-      ? { data: [] }
-      : await supabase
-          .from("price_snapshots")
-          .select(
-            "ticker, snapshot_date, market_cap, enterprise_value, pe_ratio, eps, dividend_yield, sector",
-          )
-          .in("ticker", tickers)
-          .order("snapshot_date", { ascending: false });
-
-  const fundamentals = new Map<string, NonNullable<typeof snapshots>[number]>();
-  for (const s of snapshots ?? []) {
-    if (!fundamentals.has(s.ticker)) fundamentals.set(s.ticker, s);
-  }
-
   return (
-    <main className="mx-auto max-w-6xl p-6">
-      <header className="mb-8 flex items-start justify-between gap-4">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <header className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">CIMG Portfolio</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            CIMG Portfolio
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Updated every 15 minutes during market hours. As of {summary.as_of}.
+            As of {summary.as_of}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/admin"
-            className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow"
           >
             Admin Sign In
           </Link>
@@ -58,152 +45,39 @@ export default async function Home() {
         </div>
       </header>
 
-      <section className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard
-          label="Total Value"
-          primary={fmtCurrency(summary.total_value)}
-          secondary={summary.cash !== 0 ? `${fmtCurrency(summary.cash)} cash` : undefined}
-        />
-        <StatCard
-          label="Daily P&L"
-          primary={summary.daily_pnl === null ? "—" : fmtSigned(summary.daily_pnl)}
-          secondary={fmtPct(summary.daily_pct)}
-          tone={tone(summary.daily_pnl)}
-        />
-        <StatCard
-          label="YTD P&L"
-          primary={summary.ytd_pnl === null ? "—" : fmtSigned(summary.ytd_pnl)}
-          secondary={fmtPct(summary.ytd_pct)}
-          tone={tone(summary.ytd_pnl)}
-        />
-        <StatCard
-          label="Since Inception"
-          primary={
-            summary.inception_pnl === null ? "—" : fmtSigned(summary.inception_pnl)
-          }
-          secondary={fmtPct(summary.inception_pct)}
-          tone={tone(summary.inception_pnl)}
-        />
+      <section className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SummaryPanel summary={summary} />
+        </div>
+        <div className="lg:col-span-1">
+          <WinnersLosersPanel summary={summary} moves={moves} />
+        </div>
       </section>
 
-      {(summary.dividend_income_total > 0 || summary.dividend_income_ytd > 0) && (
-        <section className="mb-8 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">
-            Dividend income YTD{" "}
-            <span className="font-medium text-gray-900 dark:text-gray-100">
-              {fmtCurrency(summary.dividend_income_ytd)}
-            </span>
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            All-time{" "}
-            <span className="font-medium text-gray-900 dark:text-gray-100">
-              {fmtCurrency(summary.dividend_income_total)}
-            </span>
-          </span>
-        </section>
-      )}
-
-      <section className="mb-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <section className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
         <PerformanceChart />
       </section>
 
-      <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-          <h2 className="mb-4 text-lg font-medium">Committee Allocation</h2>
-          <CommitteePie data={committees} />
-        </div>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 lg:col-span-2">
-          <h2 className="mb-4 text-lg font-medium">Positions</h2>
-          <PositionsTable
-            positions={positions}
-            fundamentals={
-              new Map(
-                Array.from(fundamentals.entries()).map(([k, v]) => [
-                  k,
-                  {
-                    ticker: v.ticker,
-                    market_cap: v.market_cap,
-                    enterprise_value: v.enterprise_value,
-                    pe_ratio: v.pe_ratio,
-                    eps: v.eps,
-                    dividend_yield: v.dividend_yield,
-                    sector: v.sector,
-                  },
-                ]),
-              )
-            }
-          />
-        </div>
+      <section className="mb-10">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+          Positions
+        </h2>
+        <PositionsTable positions={positions} />
       </section>
 
-      <footer className="mt-12 border-t border-gray-200 dark:border-gray-800 pt-6 text-xs text-gray-400 dark:text-gray-500">
-        All data served from the public API at{" "}
-        <code className="rounded bg-gray-100 dark:bg-gray-800 px-1 py-0.5">/api/portfolio/*</code>.
-        Source on{" "}
+      <section className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+        <h2 className="mb-4 text-lg font-medium">Committee Allocation</h2>
+        <CommitteePie data={committees} />
+      </section>
+
+      <footer className="mt-12 border-t border-gray-200/70 dark:border-gray-800 pt-6 text-xs text-gray-400 dark:text-gray-500">
         <a
           href="https://github.com/jaxsonliening/cimg_portfolio"
-          className="underline hover:text-gray-600"
+          className="underline hover:text-gray-600 dark:hover:text-gray-300"
         >
-          GitHub
+          Source on GitHub
         </a>
-        .
       </footer>
     </main>
   );
-}
-
-function StatCard({
-  label,
-  primary,
-  secondary,
-  tone,
-}: {
-  label: string;
-  primary: string;
-  secondary?: string;
-  tone?: "up" | "down" | "flat";
-}) {
-  const toneClass =
-    tone === "up"
-      ? "text-green-600"
-      : tone === "down"
-        ? "text-red-600"
-        : "text-gray-900 dark:text-gray-100";
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-      <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>
-        {primary}
-      </div>
-      {secondary && (
-        <div className="mt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">{secondary}</div>
-      )}
-    </div>
-  );
-}
-
-function fmtCurrency(n: number): string {
-  return `$${n.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
-
-function fmtSigned(n: number): string {
-  const sign = n >= 0 ? "+" : "-";
-  return `${sign}$${Math.abs(n).toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
-
-function fmtPct(pct: number | null): string | undefined {
-  if (pct === null) return undefined;
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${(pct * 100).toFixed(2)}%`;
-}
-
-function tone(n: number | null): "up" | "down" | "flat" {
-  if (n === null) return "flat";
-  return n > 0 ? "up" : n < 0 ? "down" : "flat";
 }

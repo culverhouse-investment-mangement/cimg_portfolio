@@ -16,8 +16,7 @@ export function TeamClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
+  async function fetchMembers(): Promise<void> {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
     const body = await r.json();
     if (!r.ok) {
@@ -29,13 +28,20 @@ export function TeamClient() {
     setLoading(false);
   }
 
+  // Refresh hook for child components (invite success, role change, etc.).
+  async function reload() {
+    setLoading(true);
+    await fetchMembers();
+  }
+
   useEffect(() => {
-    load();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount needs to update members + loading after the request resolves; there's no external system to sync with.
+    fetchMembers();
   }, []);
 
   return (
     <div className="space-y-8">
-      <InviteCard onInvited={load} />
+      <InviteCard onInvited={reload} />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -59,7 +65,7 @@ export function TeamClient() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {members.map((m) => (
-                  <MemberRow key={m.user_id} member={m} onChange={load} />
+                  <MemberRow key={m.user_id} member={m} onChange={reload} />
                 ))}
               </tbody>
             </table>
@@ -217,7 +223,7 @@ function InviteLink({ url }: { url: string }) {
   return (
     <div className="mt-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm">
       <div className="mb-1 font-medium text-green-900">
-        Sign-in link ready — send it to them directly.
+        Sign-in link ready.
       </div>
       <div className="flex items-start gap-2">
         <code className="block flex-1 break-all rounded bg-white px-2 py-1 text-xs text-gray-800">
@@ -232,7 +238,7 @@ function InviteLink({ url }: { url: string }) {
         </button>
       </div>
       <div className="mt-2 text-xs text-green-800">
-        Valid for ~1 hour. They&apos;ll land on /admin signed in.
+        Valid for 1 hour.
       </div>
     </div>
   );

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordAuditEvent } from "@/lib/audit/log";
+
+type Caller = Awaited<ReturnType<typeof requireAdmin>>;
 
 // GET  /api/admin/users           → list all users with roles
 // PATCH /api/admin/users          → { user_id, role } — change another user's role
@@ -52,7 +55,7 @@ const PatchSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  let caller: { userId: string };
+  let caller: Caller;
   try {
     caller = await requireAdmin();
   } catch (res) {
@@ -97,6 +100,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: parsed.role === "admin" ? "users.promote" : "users.demote",
+    resourceType: "profiles",
+    resourceId: parsed.user_id,
+    changes: { role: parsed.role },
+  });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -104,7 +116,7 @@ export async function PATCH(request: Request) {
 // row cascades via FK. Guardrails mirror PATCH: can't delete yourself,
 // can't delete the last admin.
 export async function DELETE(request: Request) {
-  let caller: { userId: string };
+  let caller: Caller;
   try {
     caller = await requireAdmin();
   } catch (res) {
@@ -148,6 +160,15 @@ export async function DELETE(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "users.delete",
+    resourceType: "auth.users",
+    resourceId: userId,
+    changes: { prior_role: target?.role ?? null },
+  });
 
   return NextResponse.json({ ok: true });
 }

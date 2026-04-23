@@ -2,11 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * For admin API route handlers. Resolves to the authenticated admin's
- * user id on success. On failure, throws a Response that the caller
- * should return directly — either 401 (no session) or 403 (session
- * exists but profile.role !== "admin").
+ * user id + email on success. On failure, throws a Response that the
+ * caller should return directly — either 401 (no session) or 403
+ * (session exists but profile.role !== "admin").
+ *
+ * The email is snapshotted for audit-log writes so historical events
+ * stay attributable even if the user is later removed.
  */
-export async function requireAdmin(): Promise<{ userId: string }> {
+export async function requireAdmin(): Promise<{ userId: string; email: string | null }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -32,5 +35,5 @@ export async function requireAdmin(): Promise<{ userId: string }> {
     });
   }
 
-  return { userId: user.id };
+  return { userId: user.id, email: user.email ?? null };
 }

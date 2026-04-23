@@ -302,6 +302,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      audit_log: {
+        Row: {
+          id: string;
+          actor_user_id: string | null;
+          actor_email: string | null;
+          action: string;
+          resource_type: string | null;
+          resource_id: string | null;
+          changes: unknown;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_user_id?: string | null;
+          actor_email?: string | null;
+          action: string;
+          resource_type?: string | null;
+          resource_id?: string | null;
+          changes?: unknown;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_user_id?: string | null;
+          actor_email?: string | null;
+          action?: string;
+          resource_type?: string | null;
+          resource_id?: string | null;
+          changes?: unknown;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {

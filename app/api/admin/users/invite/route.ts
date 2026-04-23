@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordAuditEvent } from "@/lib/audit/log";
 
 // Wraps scripts/admin-link.mjs in an API route so an already-signed-in
 // admin can invite teammates from the UI. Returns a sign-in URL the
@@ -13,8 +14,9 @@ const InviteSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  let caller: Awaited<ReturnType<typeof requireAdmin>>;
   try {
-    await requireAdmin();
+    caller = await requireAdmin();
   } catch (res) {
     return res as Response;
   }
@@ -94,6 +96,15 @@ export async function POST(request: Request) {
   confirmUrl.searchParams.set("token_hash", hashedToken);
   confirmUrl.searchParams.set("type", "magiclink");
   confirmUrl.searchParams.set("next", "/admin");
+
+  await recordAuditEvent({
+    actorUserId: caller.userId,
+    actorEmail: caller.email,
+    action: "users.invite",
+    resourceType: "auth.users",
+    resourceId: userId,
+    changes: { invited_email: parsed.email, role: parsed.role },
+  });
 
   return NextResponse.json({
     url: confirmUrl.toString(),

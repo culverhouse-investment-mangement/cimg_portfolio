@@ -31,7 +31,7 @@ export default async function Home() {
             CIMG Portfolio
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Updated every 15 minutes during market hours · As of {summary.as_of}
+            As of {summary.as_of}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -71,18 +71,12 @@ export default async function Home() {
       </section>
 
       <footer className="mt-12 border-t border-gray-200/70 dark:border-gray-800 pt-6 text-xs text-gray-400 dark:text-gray-500">
-        All data served from the public API at{" "}
-        <code className="rounded bg-gray-100 dark:bg-gray-800 px-1 py-0.5">
-          /api/portfolio/*
-        </code>
-        . Source on{" "}
         <a
           href="https://github.com/jaxsonliening/cimg_portfolio"
           className="underline hover:text-gray-600 dark:hover:text-gray-300"
         >
-          GitHub
+          Source on GitHub
         </a>
-        .
       </footer>
     </main>
   );

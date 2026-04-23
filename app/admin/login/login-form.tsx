@@ -49,24 +49,21 @@ export function LoginForm() {
         ← Back to Portfolio
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">Admin Sign In</h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Magic-link sign-in for the CIMG Portfolio Manager.
-      </p>
 
       {unauthorized && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Your account isn&apos;t marked as an admin. Ask an existing admin to promote you.
+          Your account is not an admin.
         </div>
       )}
       {callbackFailed && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          That magic link didn&apos;t work — it may have expired. Request a new one below.
+          That link expired. Request a new one.
         </div>
       )}
 
       {status === "sent" ? (
         <div className="mt-6 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-          Check <strong>{sentTo}</strong> for a sign-in link. You can close this tab.
+          Check <strong>{sentTo}</strong> for a sign-in link.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
@@ -90,9 +87,6 @@ export function LoginForm() {
             {status === "sending" ? "Sending…" : "Send Magic Link"}
           </button>
           {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Not set up yet? Ask the PM to invite you from the admin team page.
-          </p>
         </form>
       )}
     </main>

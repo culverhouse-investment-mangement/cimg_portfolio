@@ -99,7 +99,7 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          {sorted.length} holdings · click any column to sort
+          {sorted.length} holdings
         </p>
         <ExportButton filename="positions.csv" build={build} />
       </div>

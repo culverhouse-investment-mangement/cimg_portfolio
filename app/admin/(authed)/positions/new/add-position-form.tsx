@@ -127,7 +127,7 @@ export function AddPositionForm({ committees }: { committees: Committee[] }) {
         </Field>
       </div>
 
-      <Field label="Thesis" hint="Optional — why we bought this.">
+      <Field label="Thesis" hint="Optional.">
         <textarea
           rows={3}
           value={thesis}

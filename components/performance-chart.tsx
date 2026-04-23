@@ -19,7 +19,7 @@ type Range = (typeof RANGES)[number];
 type Point = { t: string; fund: number; benchmark: number | null };
 
 export function PerformanceChart() {
-  const [range, setRange] = useState<Range>("YTD");
+  const [range, setRange] = useState<Range>("1D");
   const [data, setData] = useState<Point[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 

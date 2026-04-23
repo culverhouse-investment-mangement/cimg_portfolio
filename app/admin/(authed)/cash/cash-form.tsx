@@ -7,7 +7,7 @@ type Kind = "deposit" | "capital_injection" | "dividend" | "withdrawal" | "fee" 
 
 const KINDS: { value: Kind; label: string; hint: string; sign: "+" | "-" | "±" }[] = [
   { value: "deposit", label: "Deposit", hint: "Cash contributed to the fund.", sign: "+" },
-  { value: "capital_injection", label: "Capital Injection", hint: "Annual / semester cash infusion. Splits the pre/post performance windows on the dashboard.", sign: "+" },
+  { value: "capital_injection", label: "Capital Injection", hint: "Annual or semester cash infusion.", sign: "+" },
   { value: "dividend", label: "Dividend", hint: "Paid by a held stock. Ticker required.", sign: "+" },
   { value: "withdrawal", label: "Withdrawal", hint: "Cash leaving the fund.", sign: "-" },
   { value: "fee", label: "Fee", hint: "Broker or platform fee.", sign: "-" },

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { PositionRow } from "@/lib/portfolio/types";
 import { latestPricesFor } from "@/lib/queries/latest-prices";
+import { fetchQuotes, fetchProfiles, type FmpQuote, type FmpProfile } from "@/lib/market/fmp";
 import {
   allocateTradesFifo,
   averageCostBasis,
@@ -42,7 +43,24 @@ export async function getPositions(
   const tickers = Array.from(new Set(lotsRes.data.map((l) => l.ticker)));
   if (tickers.length === 0) return [];
 
-  const [prices, snapshotsRes] = await Promise.all([
+  // Live Yahoo quotes for current price + fundamentals + day change.
+  // Falls back to the snapshot-based latestPricesFor if Yahoo is
+  // unreachable (network hiccup, rate limit) so the dashboard still
+  // renders something reasonable. fetchProfiles is best-effort too.
+  let liveQuotes: FmpQuote[] = [];
+  let liveProfiles: FmpProfile[] = [];
+  try {
+    [liveQuotes, liveProfiles] = await Promise.all([
+      fetchQuotes(tickers),
+      fetchProfiles(tickers),
+    ]);
+  } catch {
+    // Swallow — the snapshot fallback below keeps the page rendering.
+  }
+  const liveByTicker = new Map(liveQuotes.map((q) => [q.symbol, q]));
+  const profileByTicker = new Map(liveProfiles.map((p) => [p.symbol, p]));
+
+  const [snapshotPrices, snapshotsRes] = await Promise.all([
     latestPricesFor(supabase, tickers),
     supabase
       .from("price_snapshots")
@@ -54,6 +72,16 @@ export async function getPositions(
       .order("snapshot_date", { ascending: true }),
   ]);
   if (snapshotsRes.error) throw snapshotsRes.error;
+
+  // Compose the final current-price lookup: live Yahoo wins, snapshot
+  // fallback if Yahoo didn't return a value for a ticker.
+  const prices = new Map<string, number>();
+  for (const t of tickers) {
+    const live = liveByTicker.get(t)?.price;
+    const snap = snapshotPrices.get(t);
+    if (typeof live === "number") prices.set(t, live);
+    else if (typeof snap === "number") prices.set(t, snap);
+  }
 
   const snapshotsByTicker = groupBy(snapshotsRes.data, (s) => s.ticker);
 
@@ -147,7 +175,16 @@ export async function getPositions(
         : Math.pow(1 + totalReturn, 1 / yearsHeld) - 1;
 
     const snapshots = snapshotsByTicker.get(ticker) ?? [];
-    const dayChange = computeDayChangePct(currentPrice, snapshots, today);
+    const live = liveByTicker.get(ticker) ?? null;
+
+    // Day change — prefer Yahoo's regularMarketChangePercent which is
+    // authoritative (current price vs prior close as Yahoo computes
+    // it) and doesn't depend on whether price_snapshots has yesterday.
+    // Fall back to snapshot-based computation if Yahoo didn't return
+    // a value.
+    const dayChange =
+      live?.dayChangePct ??
+      computeDayChangePct(currentPrice, snapshots, today);
     const weekChange = computeWindowChangePct(
       currentPrice,
       snapshots,
@@ -179,7 +216,11 @@ export async function getPositions(
       enriched[0]?.committee_id ?? lots[0].committee_id,
     );
 
-    const f = fundamentalsByTicker.get(ticker) ?? {
+    // Fundamentals: prefer live Yahoo values, fall back to whatever
+    // the daily snapshot cron has written. The backfill-prices script
+    // only populates price so without live fallback most tickers
+    // would show "—" for market cap / P/E / EPS.
+    const snapFund = fundamentalsByTicker.get(ticker) ?? {
       market_cap: null,
       enterprise_value: null,
       pe_ratio: null,
@@ -187,6 +228,16 @@ export async function getPositions(
       dividend_yield: null,
       sector: null,
       industry: null,
+    };
+    const liveProfile = profileByTicker.get(ticker);
+    const f = {
+      market_cap: live?.marketCap ?? snapFund.market_cap,
+      enterprise_value: snapFund.enterprise_value,
+      pe_ratio: live?.pe ?? snapFund.pe_ratio,
+      eps: live?.eps ?? snapFund.eps,
+      dividend_yield: live?.dividendYield ?? snapFund.dividend_yield,
+      sector: liveProfile?.sector ?? snapFund.sector,
+      industry: liveProfile?.industry ?? snapFund.industry,
     };
 
     drafts.push({

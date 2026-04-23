@@ -24,6 +24,12 @@ export type FmpQuote = {
   marketCap: number | null;
   pe: number | null;
   eps: number | null;
+  // Day-change shipped straight from Yahoo so the dashboard doesn't
+  // depend on price_snapshots having yesterday's close written.
+  // decimal — 0.0123 = +1.23%.
+  dayChangePct: number | null;
+  previousClose: number | null;
+  dividendYield: number | null;
 };
 
 export type FmpProfile = {
@@ -36,11 +42,15 @@ export type FmpProfile = {
 type YQuote = {
   symbol?: string;
   regularMarketPrice?: number;
+  regularMarketPreviousClose?: number;
+  regularMarketChangePercent?: number;
   marketCap?: number;
   trailingPE?: number;
   forwardPE?: number;
   epsTrailingTwelveMonths?: number;
   epsForward?: number;
+  trailingAnnualDividendYield?: number;
+  dividendYield?: number;
 };
 
 type YQuoteSummary = {
@@ -77,12 +87,28 @@ export async function fetchQuotes(tickers: string[]): Promise<FmpQuote[]> {
   for (const q of list) {
     if (typeof q.symbol !== "string") continue;
     if (typeof q.regularMarketPrice !== "number") continue;
+    // Yahoo reports regularMarketChangePercent as a percent (1.23)
+    // not a decimal (0.0123). Normalize here so downstream code can
+    // treat it the same as other *_pct fields.
+    const pctValue = numOrNull(q.regularMarketChangePercent);
+    const dayChangeDecimal = pctValue === null ? null : pctValue / 100;
+    // dividendYield varies: some tickers return it as a decimal
+    // (0.034), others as percent (3.4). Normalize to decimal on a
+    // best-effort basis — anything > 1 is clearly the percent form.
+    const rawYield = numOrNull(
+      q.trailingAnnualDividendYield ?? q.dividendYield,
+    );
+    const dividendYieldDecimal =
+      rawYield === null ? null : rawYield > 1 ? rawYield / 100 : rawYield;
     out.push({
       symbol: q.symbol,
       price: q.regularMarketPrice,
       marketCap: numOrNull(q.marketCap),
       pe: numOrNull(q.trailingPE ?? q.forwardPE),
       eps: numOrNull(q.epsTrailingTwelveMonths ?? q.epsForward),
+      dayChangePct: dayChangeDecimal,
+      previousClose: numOrNull(q.regularMarketPreviousClose),
+      dividendYield: dividendYieldDecimal,
     });
   }
   return out;

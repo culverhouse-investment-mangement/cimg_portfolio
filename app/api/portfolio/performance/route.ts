@@ -116,8 +116,23 @@ async function dailySeries(
   range: Exclude<Range, "1D">,
 ) {
   const now = new Date();
-  const start = rangeStart(range, now);
-  const startDate = start ? start.toISOString().slice(0, 10) : null;
+  let startDate = dateOnly(rangeStart(range, now));
+
+  // ALL anchors to the most recent capital_injection so a one-time
+  // cash infusion doesn't inflate the displayed return. If there's
+  // no injection row, fall back to full history.
+  if (range === "ALL") {
+    const { data: injection } = await supabase
+      .from("cash_transactions")
+      .select("occurred_at")
+      .eq("kind", "capital_injection")
+      .order("occurred_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (injection?.occurred_at) {
+      startDate = injection.occurred_at;
+    }
+  }
 
   let fundQuery = supabase
     .from("fund_snapshots")
@@ -125,7 +140,7 @@ async function dailySeries(
     .order("snapshot_date", { ascending: true });
   if (startDate) fundQuery = fundQuery.gte("snapshot_date", startDate);
 
-  const startTimestamp = start ? start.toISOString() : null;
+  const startTimestamp = startDate ? `${startDate}T00:00:00Z` : null;
   let benchmarkQuery = supabase
     .from("benchmark_snapshots")
     .select("observed_at, price")
@@ -164,6 +179,10 @@ async function dailySeries(
   }));
 
   return series(series_, range);
+}
+
+function dateOnly(d: Date | null): string | null {
+  return d ? d.toISOString().slice(0, 10) : null;
 }
 
 function rangeStart(range: Exclude<Range, "1D">, now: Date): Date | null {

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { PortfolioSummary } from "@/lib/portfolio/types";
 import { latestPricesFor } from "@/lib/queries/latest-prices";
+import { paginateSelect } from "@/lib/queries/paginate";
 import { allocateTradesFifo } from "@/lib/calc/lots";
 import { computeRiskMetrics } from "@/lib/calc/risk";
 
@@ -15,8 +16,8 @@ export async function getSummary(
     tradesRes,
     cashRes,
     metaRes,
-    fundRes,
-    benchmarkRes,
+    fundRows,
+    benchmarkRows,
     latestTickRes,
     latestSnapshotRes,
   ] = await Promise.all([
@@ -30,18 +31,20 @@ export async function getSummary(
     supabase
       .from("ticker_meta")
       .select("ticker, intrinsic_value, value_updated_at"),
-    supabase
-      .from("fund_snapshots")
-      .select("snapshot_date, total_value")
-      .order("snapshot_date", { ascending: true })
-      .range(0, 49999),
-    supabase
-      .from("benchmark_snapshots")
-      .select("observed_at, price, close_date")
-      .eq("symbol", BENCHMARK)
-      .eq("is_daily_close", true)
-      .order("observed_at", { ascending: true })
-      .range(0, 49999),
+    paginateSelect<{ snapshot_date: string; total_value: number }>(() =>
+      supabase
+        .from("fund_snapshots")
+        .select("snapshot_date, total_value")
+        .order("snapshot_date", { ascending: true }),
+    ),
+    paginateSelect<{ observed_at: string; price: number; close_date: string | null }>(() =>
+      supabase
+        .from("benchmark_snapshots")
+        .select("observed_at, price, close_date")
+        .eq("symbol", BENCHMARK)
+        .eq("is_daily_close", true)
+        .order("observed_at", { ascending: true }),
+    ),
     supabase
       .from("price_ticks")
       .select("observed_at")
@@ -59,8 +62,6 @@ export async function getSummary(
   if (tradesRes.error) throw tradesRes.error;
   if (cashRes.error) throw cashRes.error;
   if (metaRes.error) throw metaRes.error;
-  if (fundRes.error) throw fundRes.error;
-  if (benchmarkRes.error) throw benchmarkRes.error;
 
   const lotsByTicker = groupBy(lotsRes.data, (l) => l.ticker);
   const tradesByTicker = groupBy(tradesRes.data, (t) => t.ticker);
@@ -119,11 +120,11 @@ export async function getSummary(
     }
   }
 
-  const fundSeries = fundRes.data.map((f) => ({
+  const fundSeries = fundRows.map((f) => ({
     date: f.snapshot_date,
     value: f.total_value,
   }));
-  const spyDailySeries = benchmarkRes.data.map((b) => ({
+  const spyDailySeries = benchmarkRows.map((b) => ({
     date: b.close_date ?? b.observed_at.slice(0, 10),
     value: b.price,
   }));

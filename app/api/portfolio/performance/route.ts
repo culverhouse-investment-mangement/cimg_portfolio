@@ -6,6 +6,7 @@ import {
   type Tick,
 } from "@/lib/calc/performance";
 import { getActiveSharesByTicker } from "@/lib/portfolio/active-tickers";
+import { paginateSelect } from "@/lib/queries/paginate";
 
 export const revalidate = 60;
 
@@ -134,34 +135,35 @@ async function dailySeries(
     }
   }
 
-  let fundQuery = supabase
-    .from("fund_snapshots")
-    .select("snapshot_date, total_value")
-    .order("snapshot_date", { ascending: true })
-    .range(0, 49999);
-  if (startDate) fundQuery = fundQuery.gte("snapshot_date", startDate);
-
   const startTimestamp = startDate ? `${startDate}T00:00:00Z` : null;
-  let benchmarkQuery = supabase
-    .from("benchmark_snapshots")
-    .select("observed_at, price")
-    .eq("symbol", BENCHMARK)
-    .eq("is_daily_close", true)
-    .order("observed_at", { ascending: true })
-    .range(0, 49999);
-  if (startTimestamp) benchmarkQuery = benchmarkQuery.gte("observed_at", startTimestamp);
-
-  const [fundRes, benchmarkRes] = await Promise.all([fundQuery, benchmarkQuery]);
-  if (fundRes.error) return fail("fund_query_failed", fundRes.error.message);
-  if (benchmarkRes.error) return fail("benchmark_query_failed", benchmarkRes.error.message);
+  const [fundRows, benchmarkRows] = await Promise.all([
+    paginateSelect<{ snapshot_date: string; total_value: number }>(() => {
+      let q = supabase
+        .from("fund_snapshots")
+        .select("snapshot_date, total_value")
+        .order("snapshot_date", { ascending: true });
+      if (startDate) q = q.gte("snapshot_date", startDate);
+      return q;
+    }),
+    paginateSelect<{ observed_at: string; price: number }>(() => {
+      let q = supabase
+        .from("benchmark_snapshots")
+        .select("observed_at, price")
+        .eq("symbol", BENCHMARK)
+        .eq("is_daily_close", true)
+        .order("observed_at", { ascending: true });
+      if (startTimestamp) q = q.gte("observed_at", startTimestamp);
+      return q;
+    }),
+  ]);
 
   const benchmarkByDate = new Map<string, number>();
-  for (const row of benchmarkRes.data) {
+  for (const row of benchmarkRows) {
     benchmarkByDate.set(row.observed_at.slice(0, 10), row.price);
   }
 
   // Inner-join by date so we never draw half a point.
-  const aligned = fundRes.data
+  const aligned = fundRows
     .map((f) => {
       const benchmarkPrice = benchmarkByDate.get(f.snapshot_date);
       return benchmarkPrice === undefined

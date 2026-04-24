@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { PositionRow } from "@/lib/portfolio/types";
 import { latestPricesFor } from "@/lib/queries/latest-prices";
+import { paginateSelect } from "@/lib/queries/paginate";
 import { fetchQuotes, fetchProfiles, type FmpQuote, type FmpProfile } from "@/lib/market/fmp";
 import {
   allocateTradesFifo,
@@ -60,23 +61,36 @@ export async function getPositions(
   const liveByTicker = new Map(liveQuotes.map((q) => [q.symbol, q]));
   const profileByTicker = new Map(liveProfiles.map((p) => [p.symbol, p]));
 
-  const [snapshotPrices, snapshotsRes] = await Promise.all([
+  // 26 tickers × ~400 dates = ~10k rows. Supabase caps raw queries
+  // at 1000; paginate through so we actually get every row. Without
+  // this, we'd silently return only the OLDEST ~1000 after ORDER BY
+  // ASC, and the week / month / since-last-update lookups would all
+  // pick the same far-in-the-past snapshot and return identical
+  // (wrong) numbers across the three columns.
+  const [snapshotPrices, snapshotsRows] = await Promise.all([
     latestPricesFor(supabase, tickers),
-    supabase
-      .from("price_snapshots")
-      .select(
-        "ticker, snapshot_date, close_price, market_cap, enterprise_value, pe_ratio, eps, dividend_yield, sector, industry",
-      )
-      .in("ticker", tickers)
-      .gte("snapshot_date", earliestNeeded)
-      .order("snapshot_date", { ascending: true })
-      // Supabase defaults to 1000 rows per query. 26 tickers × 400
-      // daily closes = ~10k rows — without this, we silently drop
-      // the most recent dates and week/month lookups fall back to
-      // whatever's near the 1000th oldest row.
-      .range(0, 49999),
+    paginateSelect<{
+      ticker: string;
+      snapshot_date: string;
+      close_price: number;
+      market_cap: number | null;
+      enterprise_value: number | null;
+      pe_ratio: number | null;
+      eps: number | null;
+      dividend_yield: number | null;
+      sector: string | null;
+      industry: string | null;
+    }>(() =>
+      supabase
+        .from("price_snapshots")
+        .select(
+          "ticker, snapshot_date, close_price, market_cap, enterprise_value, pe_ratio, eps, dividend_yield, sector, industry",
+        )
+        .in("ticker", tickers)
+        .gte("snapshot_date", earliestNeeded)
+        .order("snapshot_date", { ascending: true }),
+    ),
   ]);
-  if (snapshotsRes.error) throw snapshotsRes.error;
 
   // Compose the final current-price lookup: live Yahoo wins, snapshot
   // fallback if Yahoo didn't return a value for a ticker.
@@ -88,7 +102,7 @@ export async function getPositions(
     else if (typeof snap === "number") prices.set(t, snap);
   }
 
-  const snapshotsByTicker = groupBy(snapshotsRes.data, (s) => s.ticker);
+  const snapshotsByTicker = groupBy(snapshotsRows, (s) => s.ticker);
 
   // Latest fundamentals per ticker: walk each ticker's ordered snapshots
   // backwards, pick the first row with non-null values for each field.

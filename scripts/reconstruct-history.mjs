@@ -102,18 +102,36 @@ for (const tx of txs) everHeldTickers.add(tx.ticker);
 const earliestTxDate = txs.length ? txs[0].date : new Date().toISOString().slice(0, 10);
 const startDate = explicitStart ?? earliestTxDate;
 
-const { data: snapRows, error: snapErr } = await supabase
-  .from("price_snapshots")
-  .select("ticker, snapshot_date, close_price")
-  .in("ticker", Array.from(everHeldTickers))
-  .gte("snapshot_date", startDate);
-if (snapErr) {
-  console.error("Failed to read price_snapshots:", snapErr.message);
-  process.exit(1);
+// Supabase caps single-query reads at 1000 rows. 26 tickers * ~500
+// trading days = ~13k rows, so without pagination we'd silently miss
+// most closes and under-count equity by ~8x on the resulting chart.
+const snapRows = [];
+const PAGE = 1000;
+for (let page = 0; ; page++) {
+  const from = page * PAGE;
+  const to = from + PAGE - 1;
+  const { data, error } = await supabase
+    .from("price_snapshots")
+    .select("ticker, snapshot_date, close_price")
+    .in("ticker", Array.from(everHeldTickers))
+    .gte("snapshot_date", startDate)
+    .order("snapshot_date", { ascending: true })
+    .range(from, to);
+  if (error) {
+    console.error("Failed to read price_snapshots:", error.message);
+    process.exit(1);
+  }
+  const rows = data ?? [];
+  snapRows.push(...rows);
+  if (rows.length < PAGE) break;
+  if (page >= 49) {
+    console.error("price_snapshots pagination hit 50k-row safety cap.");
+    process.exit(1);
+  }
 }
 const pricesByTickerDate = new Map();
 const allDates = new Set();
-for (const row of snapRows ?? []) {
+for (const row of snapRows) {
   if (!pricesByTickerDate.has(row.ticker)) pricesByTickerDate.set(row.ticker, new Map());
   pricesByTickerDate.get(row.ticker).set(row.snapshot_date, Number(row.close_price));
   allDates.add(row.snapshot_date);

@@ -86,13 +86,17 @@ for (const p of posRows ?? []) {
 
 const { data: cashRows, error: cashErr } = await supabase
   .from("cash_transactions")
-  .select("amount");
+  .select("amount, occurred_at");
 if (cashErr) {
   console.error("Failed to read cash_transactions:", cashErr.message);
   process.exit(1);
 }
 const currentCash = (cashRows ?? []).reduce((s, r) => s + Number(r.amount), 0);
-console.log(`Current cash: $${currentCash.toFixed(2)}`);
+const cashTxs = (cashRows ?? []).map((r) => ({
+  date: r.occurred_at,
+  amount: Number(r.amount),
+}));
+console.log(`Current cash: $${currentCash.toFixed(2)}  (${cashTxs.length} cash_transactions rows)`);
 
 // -- Load daily closes for every relevant ticker ----------------------------
 
@@ -160,6 +164,15 @@ function sharesAt(ticker, isoDate) {
 
 function cashAt(isoDate) {
   let c = currentCash;
+  // Undo cash_transactions (deposits, capital injections, dividends) that
+  // hadn't happened yet at isoDate. Without this, today's cash leaks
+  // backward into every pre-deposit day on the chart — e.g. an $82k deposit
+  // dated 2026-03-31 would inflate every reconstructed day from 2024-04
+  // onward by $82k.
+  for (const ct of cashTxs) {
+    if (ct.date <= isoDate) continue;
+    c -= ct.amount;
+  }
   for (const tx of txsByDateAsc) {
     if (tx.date <= isoDate) continue;
     const amount = tx.shares * tx.price;

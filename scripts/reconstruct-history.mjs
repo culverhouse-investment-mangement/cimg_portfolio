@@ -109,6 +109,13 @@ const startDate = explicitStart ?? earliestTxDate;
 // Supabase caps single-query reads at 1000 rows. 26 tickers * ~500
 // trading days = ~13k rows, so without pagination we'd silently miss
 // most closes and under-count equity by ~8x on the resulting chart.
+//
+// Order by (snapshot_date, ticker) — both columns are needed for
+// stable pagination. snapshot_date alone has 26 ties per date, and
+// PostgreSQL is free to return ties in a different order on each
+// .range() call. When a 1000-row page boundary fell inside a date,
+// some (ticker, date) rows were duplicated and others silently
+// skipped, undercounting today's equity by ~58% (~$1.4M missing).
 const snapRows = [];
 const PAGE = 1000;
 for (let page = 0; ; page++) {
@@ -120,6 +127,7 @@ for (let page = 0; ; page++) {
     .in("ticker", Array.from(everHeldTickers))
     .gte("snapshot_date", startDate)
     .order("snapshot_date", { ascending: true })
+    .order("ticker", { ascending: true })
     .range(from, to);
   if (error) {
     console.error("Failed to read price_snapshots:", error.message);

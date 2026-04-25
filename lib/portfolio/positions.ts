@@ -93,7 +93,13 @@ export async function getPositions(
         )
         .in("ticker", tickers)
         .gte("snapshot_date", earliestNeeded)
-        .order("snapshot_date", { ascending: true }),
+        // Both keys needed for stable pagination — snapshot_date alone
+        // has ~26 ties per date, and PostgreSQL is free to return
+        // ties in a different order across .range() calls, which
+        // duplicates some rows and silently drops others when a page
+        // boundary falls inside a date.
+        .order("snapshot_date", { ascending: true })
+        .order("ticker", { ascending: true }),
     ),
   ]);
 

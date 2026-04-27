@@ -61,7 +61,7 @@ export default async function Home() {
           <SummaryPanel summary={summary} />
         </div>
         <div className="lg:col-span-1">
-          <WinnersLosersPanel summary={summary} moves={moves} />
+          <WinnersLosersPanel moves={moves} />
         </div>
       </section>
 
@@ -78,7 +78,14 @@ export default async function Home() {
       </section>
 
       <section className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
-        <PerformanceChart />
+        <PerformanceChart
+          postInjection={{
+            startDate: summary.capital_injection_date,
+            asOf: summary.as_of,
+            cimgTotalPct: summary.cimg_post_capital_injection_pct,
+            spyTotalPct: summary.spy_post_capital_injection_pct,
+          }}
+        />
       </section>
 
       <section className="mb-10">

@@ -10,6 +10,22 @@ export async function POST(request: Request) {
   const authFail = checkAuth(request);
   if (authFail) return authFail;
 
+  // Refuse to run on weekends. The scheduled GitHub Actions workflow
+  // already restricts to Mon-Fri, but manual curl-the-endpoint debug
+  // triggers were writing snapshots on Saturday with Yahoo's stale
+  // Friday close prices stored under a non-trading-day date — which
+  // then leaks into summary.as_of and shows up as a Saturday "as of"
+  // on every report. Bail with a 200 + skipped status so manual runs
+  // are obvious without surfacing as a workflow failure.
+  const utcDay = new Date().getUTCDay(); // 0 = Sun, 6 = Sat
+  if (utcDay === 0 || utcDay === 6) {
+    return NextResponse.json({
+      status: "skipped",
+      reason: "non_trading_day",
+      day: utcDay === 0 ? "Sunday" : "Saturday",
+    });
+  }
+
   let supabase: ReturnType<typeof createAdminClient>;
   try {
     supabase = createAdminClient();

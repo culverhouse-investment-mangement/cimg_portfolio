@@ -135,7 +135,7 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
 
   if (positions.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-400 dark:text-gray-500 shadow-sm">
+      <div className="flex h-32 items-center justify-center border border-zinc-200 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
         No open positions yet.
       </div>
     );
@@ -143,17 +143,19 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
-          {(["portfolio", "fundamentals"] as const).map((v) => (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex border border-zinc-200 dark:border-zinc-800">
+          {(["portfolio", "fundamentals"] as const).map((v, i) => (
             <button
               key={v}
               type="button"
               onClick={() => setView(v)}
-              className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                i === 0 ? "" : "border-l border-zinc-200 dark:border-zinc-800"
+              } ${
                 v === view
-                  ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
               }`}
             >
               {v === "portfolio" ? "Portfolio" : "Fundamentals"}
@@ -164,17 +166,17 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
           <select
             value={committeeFilter}
             onChange={(e) => setCommitteeFilter(e.target.value)}
-            className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2.5 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700"
+            className="border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:focus:ring-zinc-600"
             aria-label="Filter by committee"
           >
-            <option value="all">All Committees</option>
+            <option value="all">All committees</option>
             {committeeOptions.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-500">
             {sorted.length} holdings
           </p>
           <ExportButton
@@ -183,9 +185,9 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
           />
         </div>
       </div>
-      <div className="scroll-hint overflow-x-auto rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
+      <div className="scroll-hint overflow-x-auto border-t border-zinc-200 dark:border-zinc-800">
         <table className="min-w-full text-sm">
-          <thead className="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-800 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-sm text-left text-[11px] uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+          <thead className="border-b border-zinc-200 text-left text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
             <tr>
               {columns.map((c) => (
                 <SortableTh
@@ -200,7 +202,7 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
             {sorted.map((p) =>
               view === "portfolio" ? (
                 <PortfolioRow key={p.ticker} p={p} />
@@ -217,7 +219,7 @@ export function PositionsTable({ positions }: { positions: PositionRow[] }) {
 
 function PortfolioRow({ p }: { p: PositionRow }) {
   return (
-    <tr className="transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40">
+    <tr className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
       <Td strong>{p.name}</Td>
       <TdTicker ticker={p.ticker} />
       <TdPct value={p.day_change_pct} />
@@ -227,7 +229,7 @@ function PortfolioRow({ p }: { p: PositionRow }) {
       <TdPct value={p.total_return_pct} />
       <Td right tone={p.annualized_return_pct}>
         {p.held_less_than_one_year
-          ? <span className="text-gray-400 dark:text-gray-500">&lt;1Yr</span>
+          ? <span className="text-zinc-400 dark:text-zinc-600">&lt;1y</span>
           : fmtPctSigned(p.annualized_return_pct)}
       </Td>
       <Td right>{fmtCurrency(p.current_price)}</Td>
@@ -249,7 +251,7 @@ function PortfolioRow({ p }: { p: PositionRow }) {
 
 function FundamentalsRow({ p }: { p: PositionRow }) {
   return (
-    <tr className="transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40">
+    <tr className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
       <Td strong>{p.name}</Td>
       <TdTicker ticker={p.ticker} />
       <Td>{p.sector ?? "—"}</Td>
@@ -274,7 +276,7 @@ function TdTicker({ ticker }: { ticker: string }) {
     <Td strong>
       <a
         href={`/positions/${encodeURIComponent(ticker)}`}
-        className="rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-gray-700 dark:text-gray-300 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-950 hover:text-indigo-700 dark:hover:text-indigo-300"
+        className="font-mono text-[11px] font-medium tracking-wide text-zinc-600 underline-offset-4 transition-colors hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
       >
         {ticker}
       </a>
@@ -385,13 +387,15 @@ function SortableTh({
   const arrow = active ? (direction === "asc" ? " ↑" : " ↓") : "";
   return (
     <th
-      className={`whitespace-nowrap px-3 py-2.5 font-medium select-none ${right ? "text-right" : ""}`}
+      className={`whitespace-nowrap px-3 py-3 font-medium select-none ${right ? "text-right" : ""}`}
     >
       <button
         type="button"
         onClick={onClick}
         className={`w-full ${right ? "text-right" : "text-left"} transition-colors ${
-          active ? "text-gray-900 dark:text-gray-100" : "hover:text-gray-900 dark:hover:text-gray-100"
+          active
+            ? "text-zinc-900 dark:text-zinc-100"
+            : "hover:text-zinc-900 dark:hover:text-zinc-100"
         }`}
       >
         {children}
@@ -414,30 +418,21 @@ function Td({
 }) {
   const base = right ? "text-right tabular-nums" : "";
   const weight = strong
-    ? "font-medium text-gray-900 dark:text-gray-100"
-    : "text-gray-700 dark:text-gray-300";
+    ? "font-medium text-zinc-900 dark:text-zinc-100"
+    : "text-zinc-700 dark:text-zinc-300";
   const color = tone !== undefined ? toneClass(tone) : weight;
   return (
-    <td className={`whitespace-nowrap px-3 py-2 ${base} ${color}`}>{children}</td>
+    <td className={`whitespace-nowrap px-3 py-2.5 ${base} ${color}`}>{children}</td>
   );
 }
 
 function TdPct({ value }: { value: number | null }) {
-  const glyph =
-    value === null || value === 0
-      ? ""
-      : value > 0
-        ? "▲ "
-        : "▼ ";
   return (
     <td
-      className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${toneClass(value)}`}
+      className={`whitespace-nowrap px-3 py-2.5 text-right tabular-nums ${toneClass(value)}`}
     >
       {value === null ? "—" : (
-        <>
-          <span className="text-[10px] opacity-70">{glyph}</span>
-          {fmtPctSigned(value)}
-        </>
+        fmtPctSigned(value)
       )}
     </td>
   );

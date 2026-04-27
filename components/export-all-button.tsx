@@ -108,9 +108,9 @@ export function ExportAllButton({ summary, positions, moves }: Args) {
     <button
       type="button"
       onClick={download}
-      className="rounded-lg bg-gray-900 dark:bg-gray-100 px-3 py-2 text-sm font-medium text-white dark:text-gray-900 shadow-sm transition-all hover:bg-gray-800 dark:hover:bg-gray-200"
+      className="bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-50 transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
     >
-      Download All (CSV)
+      Download all (CSV)
     </button>
   );
 }

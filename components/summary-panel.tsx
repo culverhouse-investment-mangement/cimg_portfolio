@@ -10,84 +10,167 @@ import {
   toneClass,
 } from "./format";
 
-type Row = {
-  label: string;
-  formatted: string;
-  raw: number | null;
-  bold?: boolean;
-  tone?: number | null;
-};
-
 export function SummaryPanel({ summary }: { summary: PortfolioSummary }) {
   // Post-injection returns are annualized (CAGR) from the total return
-  // already computed in lib/portfolio/summary.ts. The total return spans
-  // ~6 years of holding history, so the per-year figure is more useful
-  // than the cumulative number for comparing against SPY at a glance.
+  // already computed in lib/portfolio/summary.ts. The total spans ~6
+  // years of holding history; the per-year figure compares against
+  // SPY at a glance better than the cumulative number does.
   const yearsPostInjection = yearsBetween(
     summary.capital_injection_date,
     summary.as_of,
   );
-  const cimgPostAnnualized = annualize(
+  const cimgPostAnn = annualize(
     summary.cimg_post_capital_injection_pct,
     yearsPostInjection,
   );
-  const spyPostAnnualized = annualize(
+  const spyPostAnn = annualize(
     summary.spy_post_capital_injection_pct,
     yearsPostInjection,
   );
 
-  const rows: Row[] = [
-    { label: "Market Value of Equities", formatted: fmtCurrency(summary.market_value_equities), raw: summary.market_value_equities },
-    { label: "Cash Balance", formatted: fmtCurrency(summary.cash_balance), raw: summary.cash_balance },
-    { label: "Cash Position %", formatted: fmtPctPlain(summary.cash_position_pct, 2), raw: summary.cash_position_pct },
-    { label: "Market Value of Portfolio", formatted: fmtCurrency(summary.market_value_portfolio), raw: summary.market_value_portfolio, bold: true },
-    { label: "Intrinsic Value of Portfolio", formatted: fmtCurrency(summary.intrinsic_value_portfolio), raw: summary.intrinsic_value_portfolio },
-    { label: "Equity Portfolio V/P (ex-Cash)", formatted: fmtNumber(summary.equity_vp_ex_cash, 2), raw: summary.equity_vp_ex_cash },
-    { label: "CIMG Performance Pre Capital Injection", formatted: fmtPctSigned(summary.cimg_pre_capital_injection_pct), raw: summary.cimg_pre_capital_injection_pct, tone: summary.cimg_pre_capital_injection_pct },
-    { label: "SPY Performance Pre Capital Injection", formatted: fmtPctSigned(summary.spy_pre_capital_injection_pct), raw: summary.spy_pre_capital_injection_pct, tone: summary.spy_pre_capital_injection_pct },
-    { label: "CIMG Performance Post Capital Injection (Annualized)", formatted: fmtPctSigned(cimgPostAnnualized), raw: cimgPostAnnualized, tone: cimgPostAnnualized },
-    { label: "SPY Performance Post Capital Injection (Annualized)", formatted: fmtPctSigned(spyPostAnnualized), raw: spyPostAnnualized, tone: spyPostAnnualized },
-    { label: "CIMG Performance YTD", formatted: fmtPctSigned(summary.cimg_ytd_pct), raw: summary.cimg_ytd_pct, tone: summary.cimg_ytd_pct },
-    { label: "SPY Performance YTD", formatted: fmtPctSigned(summary.spy_ytd_pct), raw: summary.spy_ytd_pct, tone: summary.spy_ytd_pct },
-    { label: "CIMG Day Change", formatted: fmtPctSigned(summary.cimg_day_change_pct), raw: summary.cimg_day_change_pct, tone: summary.cimg_day_change_pct },
-    { label: "SPY Day Change", formatted: fmtPctSigned(summary.spy_day_change_pct), raw: summary.spy_day_change_pct, tone: summary.spy_day_change_pct },
+  const performance: PerfRow[] = [
+    {
+      label: "Day",
+      cimg: summary.cimg_day_change_pct,
+      spy: summary.spy_day_change_pct,
+    },
+    { label: "YTD", cimg: summary.cimg_ytd_pct, spy: summary.spy_ytd_pct },
+    {
+      label: "Pre capital injection",
+      cimg: summary.cimg_pre_capital_injection_pct,
+      spy: summary.spy_pre_capital_injection_pct,
+    },
+    {
+      label: "Post capital injection",
+      hint: "annualized",
+      cimg: cimgPostAnn,
+      spy: spyPostAnn,
+    },
   ];
 
+  // CSV export. Keeps the same flat shape consumers were getting before
+  // the redesign (one label/value pair per metric) so the bulk download
+  // stays interoperable with anyone scripting against it.
   const build = () => ({
-    headers: ["Metric", "Value", "Formatted"],
-    rows: rows.map((r) => [r.label, r.raw, r.formatted]),
+    headers: ["Metric", "Value (decimal)", "Formatted"],
+    rows: [
+      ["Market Value of Equities", summary.market_value_equities, fmtCurrency(summary.market_value_equities)],
+      ["Cash Balance", summary.cash_balance, fmtCurrency(summary.cash_balance)],
+      ["Cash Position %", summary.cash_position_pct, fmtPctPlain(summary.cash_position_pct, 2)],
+      ["Market Value of Portfolio", summary.market_value_portfolio, fmtCurrency(summary.market_value_portfolio)],
+      ["Intrinsic Value of Portfolio", summary.intrinsic_value_portfolio, fmtCurrency(summary.intrinsic_value_portfolio)],
+      ["Equity Portfolio V/P (ex-Cash)", summary.equity_vp_ex_cash, fmtNumber(summary.equity_vp_ex_cash, 2)],
+      ["CIMG Day Change", summary.cimg_day_change_pct, fmtPctSigned(summary.cimg_day_change_pct)],
+      ["SPY Day Change", summary.spy_day_change_pct, fmtPctSigned(summary.spy_day_change_pct)],
+      ["CIMG YTD", summary.cimg_ytd_pct, fmtPctSigned(summary.cimg_ytd_pct)],
+      ["SPY YTD", summary.spy_ytd_pct, fmtPctSigned(summary.spy_ytd_pct)],
+      ["CIMG Pre Capital Injection", summary.cimg_pre_capital_injection_pct, fmtPctSigned(summary.cimg_pre_capital_injection_pct)],
+      ["SPY Pre Capital Injection", summary.spy_pre_capital_injection_pct, fmtPctSigned(summary.spy_pre_capital_injection_pct)],
+      ["CIMG Post Capital Injection (Annualized)", cimgPostAnn, fmtPctSigned(cimgPostAnn)],
+      ["SPY Post Capital Injection (Annualized)", spyPostAnn, fmtPctSigned(spyPostAnn)],
+    ] as (string | number | null)[][],
   });
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3.5">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-          Portfolio Summary
-        </h2>
+    <div>
+      <div className="mb-6 flex items-baseline justify-between">
+        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-500">
+          Portfolio summary
+        </span>
         <ExportButton filename="summary.csv" build={build} />
       </div>
-      <table className="w-full text-sm">
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-          {rows.map((r) => (
-            <tr key={r.label} className="transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40">
-              <td
-                className={`px-5 py-2.5 text-gray-600 dark:text-gray-300 ${
-                  r.bold ? "font-semibold text-gray-900 dark:text-gray-100" : ""
-                }`}
-              >
-                {r.label}
-              </td>
-              <td
-                className={`px-5 py-2.5 text-right tabular-nums ${
-                  r.bold ? "font-semibold text-gray-900 dark:text-gray-100" : ""
-                } ${r.tone !== undefined ? toneClass(r.tone) : ""}`}
-              >
-                {r.formatted}
-              </td>
-            </tr>
+
+      {/* Headline */}
+      <div className="border-b border-zinc-200 pb-6 dark:border-zinc-800">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Total portfolio value
+        </p>
+        <p className="mt-1 font-display text-[2.5rem] font-medium leading-none tracking-tightest text-zinc-900 tabular-nums dark:text-zinc-50">
+          {fmtCurrency(summary.market_value_portfolio)}
+        </p>
+      </div>
+
+      {/* Sub-headline metrics in a row */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-b border-zinc-200 py-6 dark:border-zinc-800 sm:grid-cols-4">
+        <Stat label="Equities" value={fmtCurrency(summary.market_value_equities)} />
+        <Stat label="Cash" value={fmtCurrency(summary.cash_balance)} />
+        <Stat
+          label="Cash position"
+          value={fmtPctPlain(summary.cash_position_pct, 2)}
+        />
+        <Stat
+          label="V/P (ex-cash)"
+          value={fmtNumber(summary.equity_vp_ex_cash, 2)}
+        />
+      </dl>
+
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 py-6 sm:grid-cols-2">
+        <Stat
+          label="Intrinsic value of portfolio"
+          value={fmtCurrency(summary.intrinsic_value_portfolio)}
+        />
+      </dl>
+
+      {/* Performance vs benchmark */}
+      <div className="border-t border-zinc-200 pt-6 dark:border-zinc-800">
+        <div className="mb-3 grid grid-cols-[1.4fr_repeat(3,minmax(0,1fr))] gap-x-6 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-500">
+          <div>Performance</div>
+          <div className="text-right">CIMG</div>
+          <div className="text-right">SPY</div>
+          <div className="text-right">Δ vs SPY</div>
+        </div>
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+          {performance.map((p) => (
+            <PerfLine key={p.label} row={p} />
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PerfRow = {
+  label: string;
+  hint?: string;
+  cimg: number | null;
+  spy: number | null;
+};
+
+function PerfLine({ row }: { row: PerfRow }) {
+  const delta =
+    row.cimg !== null && row.spy !== null ? row.cimg - row.spy : null;
+  return (
+    <div className="grid grid-cols-[1.4fr_repeat(3,minmax(0,1fr))] items-baseline gap-x-6 py-3 text-sm">
+      <div className="text-zinc-700 dark:text-zinc-300">
+        {row.label}
+        {row.hint && (
+          <span className="ml-2 text-[11px] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">
+            {row.hint}
+          </span>
+        )}
+      </div>
+      <div
+        className={`text-right tabular-nums ${toneClass(row.cimg)}`}
+      >
+        {fmtPctSigned(row.cimg)}
+      </div>
+      <div className={`text-right tabular-nums ${toneClass(row.spy)}`}>
+        {fmtPctSigned(row.spy)}
+      </div>
+      <div className={`text-right tabular-nums ${toneClass(delta)}`}>
+        {fmtPctSigned(delta)}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dd className="mt-1 text-base font-medium text-zinc-900 tabular-nums dark:text-zinc-100">
+        {value}
+      </dd>
     </div>
   );
 }

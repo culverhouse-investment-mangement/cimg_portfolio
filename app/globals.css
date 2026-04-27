@@ -4,10 +4,31 @@
 
 :root {
   color-scheme: light;
+
+  /* Chart palette — referenced by recharts via var(...). Two tones plus
+     a quiet accent for the overlay. Light values are the legible-on-
+     white set; the dark-mode block below swaps in the legible-on-black
+     counterparts. Keeps chart styling theme-aware without coupling the
+     React component to a theme hook. */
+  --chart-fund: #18181b;       /* zinc-900 */
+  --chart-bench: #a1a1aa;      /* zinc-400 */
+  --chart-overlay: #b45309;    /* amber-700 */
+  --chart-grid: #e4e4e7;       /* zinc-200 */
+  --chart-axis: #71717a;       /* zinc-500 */
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e4e4e7;
 }
 
 html.dark {
   color-scheme: dark;
+
+  --chart-fund: #fafafa;       /* zinc-50 */
+  --chart-bench: #71717a;      /* zinc-500 */
+  --chart-overlay: #f59e0b;    /* amber-500 */
+  --chart-grid: #27272a;       /* zinc-800 */
+  --chart-axis: #71717a;       /* zinc-500 */
+  --chart-tooltip-bg: #09090b; /* zinc-950 */
+  --chart-tooltip-border: #27272a;
 }
 
 html {
@@ -15,15 +36,18 @@ html {
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  /* Warm near-white surface, near-black text. Both sides of the theme
+     stay in the zinc ramp so the dark mode reads as institutional rather
+     than tinted-blue (Tailwind's default gray). */
+  @apply bg-zinc-50 text-zinc-900;
   font-feature-settings: "cv11", "ss01", "ss03";
 }
 
 html.dark body {
-  @apply bg-gray-950 text-gray-100;
+  @apply bg-zinc-950 text-zinc-100;
 }
 
-/* Tabular numerals everywhere a number lives. */
+/* Tabular numerals — applied wherever a number lives. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -43,7 +67,7 @@ html.dark body {
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  @apply rounded-md bg-gray-100 dark:bg-gray-800;
+  @apply rounded-sm bg-zinc-100 dark:bg-zinc-900;
   background-image: linear-gradient(
     90deg,
     transparent 0%,
@@ -58,28 +82,30 @@ html.dark .skeleton {
   background-image: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.05) 50%,
     transparent 100%
   );
 }
 
-/* Horizontal-scroll hint for wide tables on narrow screens. */
+/* Soft fade on either side of horizontally-scrolling tables, so a wide
+   table on a narrow screen visually telegraphs that there's more to
+   the right. Pure-CSS, no extra DOM. */
 .scroll-hint {
   background:
-    linear-gradient(to right, white 30%, rgba(255,255,255,0)),
-    linear-gradient(to right, rgba(255,255,255,0), white 70%) 100% 0,
-    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.08), rgba(0,0,0,0)),
-    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.08), rgba(0,0,0,0)) 100% 0;
+    linear-gradient(to right, theme(colors.white) 30%, transparent),
+    linear-gradient(to right, transparent, theme(colors.white) 70%) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.06), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.06), transparent) 100% 0;
   background-repeat: no-repeat;
   background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
   background-attachment: local, local, scroll, scroll;
 }
 html.dark .scroll-hint {
   background:
-    linear-gradient(to right, rgb(17 24 39) 30%, rgba(17,24,39,0)),
-    linear-gradient(to right, rgba(17,24,39,0), rgb(17 24 39) 70%) 100% 0,
-    radial-gradient(farthest-side at 0 50%, rgba(255,255,255,0.08), rgba(255,255,255,0)),
-    radial-gradient(farthest-side at 100% 50%, rgba(255,255,255,0.08), rgba(255,255,255,0)) 100% 0;
+    linear-gradient(to right, theme(colors.zinc.900) 30%, transparent),
+    linear-gradient(to right, transparent, theme(colors.zinc.900) 70%) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgba(255,255,255,0.06), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(255,255,255,0.06), transparent) 100% 0;
   background-repeat: no-repeat;
   background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
   background-attachment: local, local, scroll, scroll;

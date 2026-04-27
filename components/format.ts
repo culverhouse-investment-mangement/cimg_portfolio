@@ -1,3 +1,8 @@
+// Display-layer formatting helpers. Every number that lives in the UI
+// passes through one of these — keeps tabular alignment and locale
+// rules consistent (and lets us shift the look in one place when we
+// later add e.g. compact-currency or per-locale variants).
+
 export function fmtCurrency(n: number | null): string {
   if (n === null) return "—";
   const sign = n < 0 ? "-" : "";
@@ -9,7 +14,7 @@ export function fmtCurrency(n: number | null): string {
 
 export function fmtSignedCurrency(n: number | null): string {
   if (n === null) return "—";
-  const sign = n >= 0 ? "+" : "-";
+  const sign = n >= 0 ? "+" : "−";
   return `${sign}$${Math.abs(n).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -18,7 +23,7 @@ export function fmtSignedCurrency(n: number | null): string {
 
 export function fmtPctSigned(pct: number | null): string {
   if (pct === null) return "—";
-  const sign = pct >= 0 ? "+" : "-";
+  const sign = pct >= 0 ? "+" : "−";
   return `${sign}${(Math.abs(pct) * 100).toFixed(2)}%`;
 }
 
@@ -45,6 +50,11 @@ export function fmtDateShort(iso: string | null): string {
 }
 
 export function toneClass(n: number | null): string {
-  if (n === null || n === 0) return "text-gray-700 dark:text-gray-300";
-  return n > 0 ? "text-green-600 dark:text-green-500" : "text-red-600 dark:text-red-500";
+  // Default text — used wherever a value has no positive/negative tone
+  // (e.g. zero, null, non-pnl numbers). Falls back to the page's body
+  // color rather than overriding it.
+  if (n === null || n === 0) return "text-zinc-700 dark:text-zinc-300";
+  return n > 0
+    ? "text-emerald-700 dark:text-emerald-400"
+    : "text-rose-700 dark:text-rose-400";
 }

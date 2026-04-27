@@ -48,9 +48,14 @@ type ChartRow = {
   overlay: number | null;
 };
 
-const FUND_COLOR = "#6366f1"; // indigo-500 — CIMG
-const BENCH_COLOR = "#f59e0b"; // amber-500 — SPY
-const OVERLAY_COLOR = "#14b8a6"; // teal-500 — rolling overlay
+// Chart palette pulls from CSS variables defined in globals.css so the
+// strokes stay legible in both light and dark mode without re-rendering
+// on theme change. CIMG = ink, SPY = mid-zinc, overlay = quiet amber.
+const FUND_COLOR = "var(--chart-fund)";
+const BENCH_COLOR = "var(--chart-bench)";
+const OVERLAY_COLOR = "var(--chart-overlay)";
+const GRID_COLOR = "var(--chart-grid)";
+const AXIS_COLOR = "var(--chart-axis)";
 
 export function PerformanceChart({
   postInjection,
@@ -123,25 +128,35 @@ export function PerformanceChart({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-medium">CIMG vs S&amp;P 500</h2>
+          <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-500">
+            Performance
+          </span>
+          <h2 className="mt-2 font-display text-2xl font-medium tracking-tight text-zinc-900 dark:text-zinc-50">
+            CIMG vs S&amp;P 500
+          </h2>
           {subtitle && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
               {subtitle}
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
-            {RANGES.map((r) => (
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            className="inline-flex border border-zinc-200 dark:border-zinc-800"
+            aria-label="Range"
+          >
+            {RANGES.map((r, i) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  i === 0 ? "" : "border-l border-zinc-200 dark:border-zinc-800"
+                } ${
                   r === range
-                    ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
                 }`}
               >
                 {r}
@@ -149,18 +164,14 @@ export function PerformanceChart({
             ))}
           </div>
           <div
-            className="inline-flex items-center rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5"
+            className="inline-flex items-center border border-zinc-200 dark:border-zinc-800"
             aria-label="Overlay"
-            title={
-              overlayDisabled
-                ? "Overlay not available on 1D range"
-                : "Overlay"
-            }
+            title={overlayDisabled ? "Overlay not available on 1D range" : "Overlay"}
           >
-            <span className="px-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <span className="border-r border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
               Overlay
             </span>
-            {OVERLAYS.map((o) => {
+            {OVERLAYS.map((o, i) => {
               const active = !overlayDisabled && o === overlay;
               return (
                 <button
@@ -169,10 +180,12 @@ export function PerformanceChart({
                     if (!overlayDisabled) setOverlay(o);
                   }}
                   disabled={overlayDisabled}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+                  className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    i === 0 ? "" : "border-l border-zinc-200 dark:border-zinc-800"
+                  } ${
                     active
-                      ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                      ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                      : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
                   } ${overlayDisabled ? "cursor-not-allowed opacity-50" : ""}`}
                 >
                   {OVERLAY_LABELS[o]}
@@ -209,49 +222,70 @@ export function PerformanceChart({
           <Empty>No data yet for this range.</Empty>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={rows} margin={{ left: 12, right: 12, top: 8 }}>
+            <LineChart data={rows} margin={{ left: 4, right: 16, top: 8, bottom: 0 }}>
               <CartesianGrid
-                stroke="currentColor"
-                strokeOpacity={0.12}
-                className="text-gray-500 dark:text-gray-400"
+                stroke={GRID_COLOR}
+                strokeDasharray="0"
+                vertical={false}
               />
               <XAxis
                 dataKey="t"
                 tickFormatter={(t) => formatTick(t, range)}
-                stroke="currentColor"
-                className="text-gray-500 dark:text-gray-400"
+                stroke={AXIS_COLOR}
+                tickLine={false}
+                axisLine={false}
                 fontSize={11}
-                minTickGap={40}
+                minTickGap={48}
+                padding={{ left: 8, right: 8 }}
               />
               <YAxis
-                stroke="currentColor"
-                className="text-gray-500 dark:text-gray-400"
+                stroke={AXIS_COLOR}
+                tickLine={false}
+                axisLine={false}
                 fontSize={11}
-                tickFormatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+                width={48}
+                tickFormatter={(v: number) =>
+                  `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`
+                }
                 domain={["auto", "auto"]}
               />
               <Tooltip
+                cursor={{ stroke: GRID_COLOR, strokeWidth: 1 }}
                 contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(75, 85, 99, 0.5)",
-                  borderRadius: "0.5rem",
-                  color: "#f9fafb",
-                  fontSize: "0.75rem",
+                  backgroundColor: "var(--chart-tooltip-bg)",
+                  border: "1px solid var(--chart-tooltip-border)",
+                  borderRadius: "2px",
+                  fontSize: "11px",
+                  padding: "8px 10px",
+                  boxShadow: "none",
                 }}
-                labelStyle={{ color: "#d1d5db" }}
+                labelStyle={{
+                  color: "var(--chart-axis)",
+                  marginBottom: 4,
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+                itemStyle={{ padding: 0 }}
                 labelFormatter={(t) => formatTooltip(String(t), range)}
                 formatter={(value) => {
                   if (typeof value !== "number") return ["—"];
                   return [`${value >= 0 ? "+" : ""}${value.toFixed(2)}%`];
                 }}
               />
-              <Legend />
+              <Legend
+                verticalAlign="bottom"
+                height={28}
+                iconType="plainline"
+                iconSize={16}
+                wrapperStyle={{ fontSize: 11, color: "var(--chart-axis)" }}
+              />
               <Line
                 type="monotone"
                 dataKey="cimg"
                 name="CIMG"
                 stroke={FUND_COLOR}
-                strokeWidth={2.5}
+                strokeWidth={1.5}
                 dot={false}
                 connectNulls
               />
@@ -260,8 +294,8 @@ export function PerformanceChart({
                 dataKey="spy"
                 name="S&P 500"
                 stroke={BENCH_COLOR}
-                strokeWidth={2}
-                strokeDasharray="5 4"
+                strokeWidth={1.25}
+                strokeDasharray="3 3"
                 dot={false}
                 connectNulls
               />
@@ -271,8 +305,8 @@ export function PerformanceChart({
                   dataKey="overlay"
                   name={overlayLabel}
                   stroke={OVERLAY_COLOR}
-                  strokeWidth={2}
-                  strokeDasharray="2 3"
+                  strokeWidth={1.25}
+                  strokeDasharray="1 3"
                   dot={false}
                   connectNulls={false}
                 />
@@ -287,7 +321,7 @@ export function PerformanceChart({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-md bg-gray-50 dark:bg-gray-800 text-sm text-gray-400 dark:text-gray-500">
+    <div className="flex h-full items-center justify-center border border-zinc-200 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
       {children}
     </div>
   );

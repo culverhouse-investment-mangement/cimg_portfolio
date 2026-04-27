@@ -12,9 +12,17 @@ import {
   Legend,
 } from "recharts";
 import { ExportButton } from "./export-button";
+import { fmtDateShort, fmtPctSigned } from "./format";
 
 const RANGES = ["1D", "1M", "3M", "6M", "YTD", "1Y", "ALL"] as const;
 type Range = (typeof RANGES)[number];
+
+type PostInjection = {
+  startDate: string | null;          // YYYY-MM-DD
+  asOf: string;                      // YYYY-MM-DD
+  cimgTotalPct: number | null;       // decimal
+  spyTotalPct: number | null;        // decimal
+};
 
 const OVERLAYS = ["off", "rolling30", "alpha30"] as const;
 type Overlay = (typeof OVERLAYS)[number];
@@ -44,7 +52,11 @@ const FUND_COLOR = "#6366f1"; // indigo-500 — CIMG
 const BENCH_COLOR = "#f59e0b"; // amber-500 — SPY
 const OVERLAY_COLOR = "#14b8a6"; // teal-500 — rolling overlay
 
-export function PerformanceChart() {
+export function PerformanceChart({
+  postInjection,
+}: {
+  postInjection?: PostInjection;
+}) {
   const [range, setRange] = useState<Range>("YTD");
   const [overlay, setOverlay] = useState<Overlay>("off");
   const [data, setData] = useState<Point[]>([]);
@@ -107,10 +119,19 @@ export function PerformanceChart() {
 
   const overlayLabel = overlayLineLabel(effectiveOverlay);
 
+  const subtitle = postInjectionSubtitle(postInjection);
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-medium">CIMG vs S&amp;P 500</h2>
+        <div>
+          <h2 className="text-lg font-medium">CIMG vs S&amp;P 500</h2>
+          {subtitle && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {subtitle}
+            </p>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
             {RANGES.map((r) => (
@@ -378,4 +399,29 @@ function formatTooltip(t: string, range: Range): string {
     month: "short",
     day: "numeric",
   });
+}
+
+// Post-capital-injection annualized return for both lines, rendered as
+// a small subtitle under the chart heading. Falls back to plain total
+// return if the window is < 1 year (annualizing a 6-month window scales
+// noise into a wildly large number that misrepresents the period).
+function postInjectionSubtitle(p: PostInjection | undefined): string | null {
+  if (!p || !p.startDate || p.cimgTotalPct === null || p.spyTotalPct === null) {
+    return null;
+  }
+  const years = yearsBetween(p.startDate, p.asOf);
+  if (years <= 0) return null;
+  const labelDate = fmtDateShort(p.startDate);
+  if (years < 1) {
+    return `Since capital injection (${labelDate}): CIMG ${fmtPctSigned(p.cimgTotalPct)} · SPY ${fmtPctSigned(p.spyTotalPct)}`;
+  }
+  const cimgAnn = Math.pow(1 + p.cimgTotalPct, 1 / years) - 1;
+  const spyAnn = Math.pow(1 + p.spyTotalPct, 1 / years) - 1;
+  return `Since capital injection (${labelDate}): CIMG ${fmtPctSigned(cimgAnn)}/yr · SPY ${fmtPctSigned(spyAnn)}/yr`;
+}
+
+function yearsBetween(startIso: string, endIso: string): number {
+  const start = new Date(`${startIso}T00:00:00Z`).getTime();
+  const end = new Date(`${endIso}T00:00:00Z`).getTime();
+  return (end - start) / (365.25 * 24 * 60 * 60 * 1000);
 }

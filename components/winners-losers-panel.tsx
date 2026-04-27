@@ -1,27 +1,13 @@
-import type { PortfolioSummary, WinnersLosers, MoverRow } from "@/lib/portfolio/types";
-import { fmtDateShort, fmtPctSigned } from "./format";
+import type { WinnersLosers, MoverRow } from "@/lib/portfolio/types";
+import { fmtPctSigned } from "./format";
 
 export function WinnersLosersPanel({
-  summary,
   moves,
 }: {
-  summary: PortfolioSummary;
   moves: WinnersLosers;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4 shadow-sm transition-shadow hover:shadow-md">
-        <div className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
-          Portfolio Last Updated
-        </div>
-        <div className="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-          {fmtDateShort(summary.last_update_trading_day)}
-        </div>
-        <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-          Analyst data &middot; updated manually by the PM
-        </div>
-      </div>
-
       <MoversCard title="Biggest Winners" rows={moves.winners} variant="up" />
       <MoversCard title="Biggest Losers" rows={moves.losers} variant="down" />
     </div>

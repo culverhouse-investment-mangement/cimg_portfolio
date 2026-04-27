@@ -14,6 +14,13 @@ const RANGES = ["1D", "1M", "3M", "6M", "YTD", "1Y", "ALL"] as const;
 type Range = (typeof RANGES)[number];
 const BENCHMARK = "SPY";
 
+// "ALL" range is anchored to the start of 2024 — that's roughly when the
+// daily transaction log begins and where reconstruct-history's reliable
+// data starts. The earlier monthly check-ins from the Excel sheet
+// (2009–2023) survive in fund_snapshots for archival purposes but
+// cluttered the chart with sparse, low-resolution rows.
+const ALL_INCEPTION = "2024-01-02";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const range = (searchParams.get("range") ?? "YTD").toUpperCase() as Range;
@@ -119,20 +126,8 @@ async function dailySeries(
   const now = new Date();
   let startDate = dateOnly(rangeStart(range, now));
 
-  // ALL anchors to the most recent capital_injection so a one-time
-  // cash infusion doesn't inflate the displayed return. If there's
-  // no injection row, fall back to full history.
   if (range === "ALL") {
-    const { data: injection } = await supabase
-      .from("cash_transactions")
-      .select("occurred_at")
-      .eq("kind", "capital_injection")
-      .order("occurred_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (injection?.occurred_at) {
-      startDate = injection.occurred_at;
-    }
+    startDate = ALL_INCEPTION;
   }
 
   const startTimestamp = startDate ? `${startDate}T00:00:00Z` : null;
